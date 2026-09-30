@@ -4,7 +4,7 @@
 require_once __DIR__ . '/includes/auth.php';
 
 if (isAdminLoggedIn()) {
-    header("Location: admin/index");
+    header("Location: " . getBaseUrl() . "/admin/index");
     exit;
 }
 
@@ -152,6 +152,7 @@ include __DIR__ . '/includes/header.php';
             </div>
         </div>
 
+    <?php else: ?>
         <!-- Viewer is Verified: Show ONLY Content They Have Access To -->
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 pb-5 border-b border-slate-200/80">
             <div>
