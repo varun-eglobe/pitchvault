@@ -1,0 +1,9 @@
+# Uploads directory
+uploads/videos/*
+!uploads/videos/.gitkeep
+uploads/thumbnails/*
+!uploads/thumbnails/.gitkeep
+
+# OS generated files
+.DS_Store
+Thumbs.db
