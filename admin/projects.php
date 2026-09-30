@@ -240,7 +240,7 @@ include __DIR__ . '/../includes/header.php';
                             <button onclick='openShareModal(<?= json_encode($proj) ?>)' 
                                     class="inline-flex items-center justify-center space-x-1.5 px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold rounded-xl text-xs transition border border-indigo-200/80">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
-                                <span>Share</span>
+                                <span>Share (<?= (int)$proj['access_count'] ?>)</span>
                             </button>
 
                             <!-- Copy Link -->
@@ -327,10 +327,11 @@ include __DIR__ . '/../includes/header.php';
 </div>
 
 <!-- Share Project Access Modal -->
+<!-- Manage Project Access Modal -->
 <div id="shareAccessModal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto">
-    <div class="bg-white rounded-3xl shadow-2xl max-w-lg w-full border border-slate-200 overflow-hidden my-auto max-h-[90vh] flex flex-col">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-3xl sm:max-w-4xl w-full border border-slate-200 overflow-hidden my-auto max-h-[90vh] flex flex-col transform transition-all">
         <!-- Modal Header -->
-        <div class="px-5 sm:px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
+        <div class="px-5 sm:px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50/50">
             <div class="flex items-center space-x-2.5 min-w-0 pr-2">
                 <div class="w-8 h-8 bg-brand-50 text-brand-600 rounded-xl flex items-center justify-center shrink-0">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
@@ -342,33 +343,42 @@ include __DIR__ . '/../includes/header.php';
             </button>
         </div>
 
-        <!-- Modal Body (Scrollable) -->
-        <div class="p-5 sm:p-6 space-y-5 overflow-y-auto">
-            <div>
-                <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">Grant Access to Email</label>
-                <div class="flex flex-col sm:flex-row gap-2">
-                    <input type="email" id="shareEmailInput" placeholder="investor@partner.com" 
-                           class="flex-1 px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition">
-                    <button id="shareGrantBtn" class="w-full sm:w-auto px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold rounded-xl transition shrink-0 shadow-xs flex items-center justify-center space-x-1.5">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path></svg>
-                        <span>Grant Access</span>
-                    </button>
+        <!-- 2-Column Grid Body -->
+        <div class="p-6 grid grid-cols-1 md:grid-cols-12 gap-6 overflow-y-auto">
+            <!-- Left Column: Grant Access & Share Link -->
+            <div class="md:col-span-5 space-y-6 flex flex-col justify-between">
+                <div>
+                    <div class="mb-5">
+                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Grant Access to Email</label>
+                        <div class="space-y-2">
+                            <input type="email" id="shareEmailInput" placeholder="investor@partner.com" 
+                                   class="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-300 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition">
+                            <button id="shareGrantBtn" class="w-full px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-xs sm:text-sm font-semibold rounded-xl transition shrink-0 shadow-xs flex items-center justify-center space-x-1.5">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path></svg>
+                                <span>Grant Access</span>
+                            </button>
+                        </div>
+                        <p class="text-[11px] text-slate-400 mt-1.5 leading-normal">Granted viewers will receive full access to all current and future videos in this project.</p>
+                    </div>
+
+                    <div class="pt-4 border-t border-slate-100">
+                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Project Share Link</label>
+                        <div class="flex items-center space-x-2 p-1.5 bg-slate-50 border border-slate-200 rounded-xl">
+                            <input type="text" id="shareUrlInput" readonly value="" class="flex-1 bg-transparent border-0 text-xs text-slate-600 focus:ring-0 px-2 font-mono truncate">
+                            <button onclick="copyProjectLink(document.getElementById('shareUrlInput').value)" class="px-3.5 py-2 bg-white border border-slate-200 hover:bg-slate-100 text-xs font-semibold text-slate-700 rounded-lg transition shadow-2xs shrink-0">
+                                Copy Link
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <div>
-                <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">Project Share Link</label>
-                <div class="flex items-center space-x-2 p-1.5 bg-slate-50 border border-slate-200 rounded-xl">
-                    <input type="text" id="shareUrlInput" readonly value="" class="flex-1 bg-transparent border-0 text-xs text-slate-600 focus:ring-0 px-2 font-mono truncate">
-                    <button onclick="copyProjectLink(document.getElementById('shareUrlInput').value)" class="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-100 text-xs font-semibold text-slate-700 rounded-lg transition shadow-xs shrink-0">
-                        Copy Link
-                    </button>
+            <!-- Right Column: Allowed Emails List -->
+            <div class="md:col-span-7 flex flex-col min-h-0 md:border-l md:border-slate-100 md:pl-6">
+                <div class="flex items-center justify-between mb-3">
+                    <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider">People with project access</h4>
                 </div>
-            </div>
-
-            <div>
-                <h4 class="text-xs font-semibold text-slate-700 uppercase tracking-wider mb-3">Allowed Emails List</h4>
-                <div id="accessListModalContainer" class="space-y-2 max-h-52 overflow-y-auto pr-1">
+                <div id="accessListModalContainer" class="space-y-2 max-h-80 sm:max-h-[380px] overflow-y-auto pr-1 flex-1">
                     <!-- Populated dynamically -->
                 </div>
             </div>
@@ -561,8 +571,13 @@ function renderModalAccessList(list) {
         return;
     }
     accessListModalContainer.innerHTML = list.map(item => {
+        const isGrantedByAdmin = item.granted_by_admin_id !== null && item.granted_by_admin_id !== undefined && item.granted_by_admin_id !== '';
         const adminName = item.granted_by_name || 'Admin';
         const dateStr = item.granted_at ? ' &bull; ' + item.granted_at.substring(0, 10) : '';
+        const accessText = isGrantedByAdmin
+            ? `Shared by <strong class="text-slate-700 font-semibold">${escapeHtml(adminName)}</strong>`
+            : `<span class="inline-flex items-center text-amber-700 font-medium">OTP Verification</span>`;
+
         return `
             <div class="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 border border-slate-100">
                 <div class="flex items-center space-x-3 min-w-0">
@@ -572,7 +587,7 @@ function renderModalAccessList(list) {
                     <div class="min-w-0">
                         <p class="text-xs font-semibold text-slate-800 truncate">${escapeHtml(item.email)}</p>
                         <p class="text-[10px] text-slate-500">
-                            Shared by <strong class="text-slate-700 font-semibold">${escapeHtml(adminName)}</strong>${dateStr}
+                            ${accessText}${dateStr}
                         </p>
                     </div>
                 </div>

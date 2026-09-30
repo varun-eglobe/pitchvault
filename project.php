@@ -210,7 +210,7 @@ $videos = $stmtV->fetchAll();
 if (isSalesAdmin()) {
     $stmtAccess = $db->prepare("
         SELECT pa.email, pa.granted_at, pa.granted_by_admin_id, 
-               COALESCE(a.name, 'Admin') as granted_by_name, 
+               a.name as granted_by_name, 
                a.email as granted_by_email
         FROM project_access pa 
         LEFT JOIN admins a ON pa.granted_by_admin_id = a.id 
@@ -221,7 +221,7 @@ if (isSalesAdmin()) {
 } else {
     $stmtAccess = $db->prepare("
         SELECT pa.email, pa.granted_at, pa.granted_by_admin_id, 
-               COALESCE(a.name, 'Admin') as granted_by_name, 
+               a.name as granted_by_name, 
                a.email as granted_by_email
         FROM project_access pa 
         LEFT JOIN admins a ON pa.granted_by_admin_id = a.id 
@@ -413,7 +413,7 @@ include __DIR__ . '/includes/header.php';
 
                     <button id="openProjectShareModalBtn" class="flex-1 sm:flex-initial px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold transition flex items-center justify-center space-x-1.5 whitespace-nowrap shadow-xs">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path></svg>
-                        <span>Share</span>
+                        <span>Share (<?= count($accessList) ?>)</span>
                     </button>
                     
                     <a href="<?= getBaseUrl() ?>/admin/projects" class="px-3.5 py-2 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-semibold transition whitespace-nowrap text-center">
@@ -531,7 +531,7 @@ include __DIR__ . '/includes/header.php';
                                         <?php if (!empty($video['updated_at']) && strtotime($video['updated_at']) > (strtotime($video['created_at']) + 60)): ?>
                                             <span>&bull;</span>
                                             <span class="text-amber-700 font-semibold" title="Reuploaded / Last Updated on <?= date('M d, Y h:i A', strtotime($video['updated_at'])) ?>">
-                                                Updated: <?= date('M d, Y', strtotime($video['updated_at'])) ?>
+                                                Updated: <?= date('M d, Y, g:i A', strtotime($video['updated_at'])) ?>
                                             </span>
                                         <?php endif; ?>
                                     </div>
@@ -570,6 +570,20 @@ include __DIR__ . '/includes/header.php';
                                         </svg>
                                         <span>Copy</span>
                                     </button>
+                                    <button id="videoShareBtn_<?= $video['id'] ?>" 
+                                            onclick="openVideoShareModal(<?= htmlspecialchars(json_encode([
+                                                'id' => (int)$video['id'],
+                                                'title' => $video['title'],
+                                                'access_key' => $video['access_key'],
+                                                'share_url' => getBaseUrl() . '/watch?v=' . urlencode($video['access_key'])
+                                            ]), ENT_QUOTES, 'UTF-8') ?>)" 
+                                            class="flex-1 sm:flex-initial inline-flex items-center justify-center space-x-1 px-2.5 py-1.5 bg-indigo-50 border border-indigo-200/80 hover:bg-indigo-100 text-indigo-700 font-semibold rounded-lg text-[11px] transition shadow-2xs" 
+                                            title="Share Video Access">
+                                        <svg class="w-3 h-3 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path>
+                                        </svg>
+                                        <span>Share (<?= (int)($video['access_count'] ?? 0) ?>)</span>
+                                    </button>
                                     <a href="<?= getBaseUrl() ?>/admin/video-upload?id=<?= $video['id'] ?>" 
                                        class="flex-1 sm:flex-initial inline-flex items-center justify-center space-x-1 px-2.5 py-1.5 bg-white border border-slate-200/80 hover:bg-slate-100 text-slate-700 font-semibold rounded-lg text-[11px] transition shadow-2xs">
                                         <svg class="w-3 h-3 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
@@ -607,54 +621,62 @@ include __DIR__ . '/includes/header.php';
 </div>
 
 <!-- Google Drive Style Share Project Modal -->
-<div id="projectShareModal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
-    <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full border border-slate-200 overflow-hidden transform transition-all">
+<div id="projectShareModal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-3xl sm:max-w-4xl w-full border border-slate-200 overflow-hidden my-auto max-h-[90vh] flex flex-col transform transition-all">
         <!-- Modal Header -->
-        <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-            <div class="flex items-center space-x-2">
-                <div class="w-8 h-8 bg-brand-50 text-brand-600 rounded-lg flex items-center justify-center">
+        <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50/50">
+            <div class="flex items-center space-x-2.5">
+                <div class="w-8 h-8 bg-brand-50 text-brand-600 rounded-xl flex items-center justify-center">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
                 </div>
-                <h3 class="font-bold text-slate-900 text-lg">Share "<?= htmlspecialchars($project['title']) ?>"</h3>
+                <h3 class="font-bold text-slate-900 text-base sm:text-lg">Share "<?= htmlspecialchars($project['title']) ?>"</h3>
             </div>
-            <button id="closeProjectShareModalBtn" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100">
+            <button id="closeProjectShareModalBtn" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-xl hover:bg-slate-100 transition">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
             </button>
         </div>
 
-        <div class="p-6 space-y-6">
-            <!-- Add Email Section (Admin Mode) -->
-            <?php if ($isAdmin): ?>
+        <!-- 2-Column Grid Body -->
+        <div class="p-6 grid grid-cols-1 md:grid-cols-12 gap-6 overflow-y-auto">
+            <!-- Left Column: Grant Access & Share Link -->
+            <div class="md:col-span-5 space-y-6 flex flex-col justify-between">
                 <div>
-                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">Grant Project Access to Email</label>
-                    <div class="flex space-x-2">
-                        <input type="email" id="newProjectAccessEmail" placeholder="investor@firm.com" 
-                               class="flex-1 px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500">
-                        <button id="addProjectAccessBtn" class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-xl transition shrink-0">
-                            Grant Access
-                        </button>
-                    </div>
-                </div>
-            <?php endif; ?>
+                    <?php if ($isAdmin): ?>
+                        <div class="mb-5">
+                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Grant Project Access to Email</label>
+                            <div class="space-y-2">
+                                <input type="email" id="newProjectAccessEmail" placeholder="investor@firm.com" 
+                                       class="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-300 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition">
+                                <button id="addProjectAccessBtn" class="w-full px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-xs sm:text-sm font-semibold rounded-xl transition shadow-xs flex items-center justify-center space-x-1.5">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path></svg>
+                                    <span>Grant Access</span>
+                                </button>
+                            </div>
+                            <p class="text-[11px] text-slate-400 mt-1.5 leading-normal">Granted viewers will receive full access to all current and future videos in this project.</p>
+                        </div>
+                    <?php endif; ?>
 
-            <!-- Copy Link Box -->
-            <div>
-                <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">Private Project Share Link</label>
-                <div class="flex items-center space-x-2 p-1.5 bg-slate-50 border border-slate-200 rounded-xl">
-                    <input type="text" id="modalProjectShareUrl" readonly value="<?= $projectUrl ?>" 
-                           class="flex-1 bg-transparent border-0 text-xs text-slate-600 focus:ring-0 px-2 font-mono">
-                    <button id="modalProjectCopyBtn" class="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-100 text-xs font-semibold text-slate-700 rounded-lg transition shadow-xs">
-                        Copy Link
-                    </button>
+                    <div class="pt-4 border-t border-slate-100">
+                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Private Project Share Link</label>
+                        <div class="flex items-center space-x-2 p-1.5 bg-slate-50 border border-slate-200 rounded-xl">
+                            <input type="text" id="modalProjectShareUrl" readonly value="<?= $projectUrl ?>" 
+                                   class="flex-1 bg-transparent border-0 text-xs text-slate-600 focus:ring-0 px-2 font-mono truncate">
+                            <button id="modalProjectCopyBtn" class="px-3.5 py-2 bg-white border border-slate-200 hover:bg-slate-100 text-xs font-semibold text-slate-700 rounded-lg transition shadow-2xs shrink-0">
+                                Copy Link
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <!-- List of People with Access -->
-            <div>
-                <h4 class="text-xs font-semibold text-slate-700 uppercase tracking-wider mb-3">People with project access</h4>
-                <div id="projectAccessListContainer" class="space-y-2 max-h-48 overflow-y-auto pr-1">
+            <!-- Right Column: Allowed Emails List -->
+            <div class="md:col-span-7 flex flex-col min-h-0 md:border-l md:border-slate-100 md:pl-6">
+                <div class="flex items-center justify-between mb-3">
+                    <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider">People with project access</h4>
+                </div>
+                <div id="projectAccessListContainer" class="space-y-2 max-h-80 sm:max-h-[380px] overflow-y-auto pr-1 flex-1">
                     <?php if (empty($accessList)): ?>
-                        <p class="text-xs text-slate-400 py-2">No emails granted project access yet.</p>
+                        <p class="text-xs text-slate-400 py-3 text-center">No emails granted project access yet.</p>
                     <?php else: ?>
                         <?php foreach ($accessList as $acc): ?>
                             <div class="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 border border-slate-100">
@@ -665,7 +687,11 @@ include __DIR__ . '/includes/header.php';
                                     <div class="min-w-0">
                                         <p class="text-xs font-semibold text-slate-800 truncate"><?= htmlspecialchars($acc['email']) ?></p>
                                         <p class="text-[10px] text-slate-500">
-                                            Shared by <strong class="text-slate-700 font-semibold"><?= htmlspecialchars($acc['granted_by_name'] ?? 'Admin') ?></strong> &bull; <?= date('M d, Y', strtotime($acc['granted_at'])) ?>
+                                            <?php if (!empty($acc['granted_by_admin_id'])): ?>
+                                                Shared by <strong class="text-slate-700 font-semibold"><?= htmlspecialchars($acc['granted_by_name'] ?? 'Admin') ?></strong> &bull; <?= date('M d, Y', strtotime($acc['granted_at'])) ?>
+                                            <?php else: ?>
+                                                <span class="inline-flex items-center text-amber-700 font-medium">OTP Verification</span> &bull; <?= date('M d, Y', strtotime($acc['granted_at'])) ?>
+                                            <?php endif; ?>
                                         </p>
                                     </div>
                                 </div>
@@ -679,6 +705,68 @@ include __DIR__ . '/includes/header.php';
                             </div>
                         <?php endforeach; ?>
                     <?php endif; ?>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Google Drive Style Video Share Modal -->
+<div id="videoShareModal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-3xl sm:max-w-4xl w-full border border-slate-200 overflow-hidden my-auto max-h-[90vh] flex flex-col transform transition-all">
+        <!-- Modal Header -->
+        <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50/50">
+            <div class="flex items-center space-x-2.5">
+                <div class="w-8 h-8 bg-brand-50 text-brand-600 rounded-xl flex items-center justify-center">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                </div>
+                <h3 class="font-bold text-slate-900 text-base sm:text-lg">Share "<span id="videoShareModalTitle">Video</span>"</h3>
+            </div>
+            <button onclick="closeVideoShareModal()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-xl hover:bg-slate-100 transition">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+        </div>
+
+        <!-- 2-Column Grid Body -->
+        <div class="p-6 grid grid-cols-1 md:grid-cols-12 gap-6 overflow-y-auto">
+            <!-- Left Column: Grant Access & Share Link -->
+            <div class="md:col-span-5 space-y-6 flex flex-col justify-between">
+                <div>
+                    <?php if ($isAdmin): ?>
+                        <div class="mb-5">
+                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Grant Video Access to Email</label>
+                            <div class="space-y-2">
+                                <input type="email" id="newVideoAccessEmail" placeholder="john@domain.com" 
+                                       class="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-300 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition">
+                                <button onclick="grantVideoShareAccess()" class="w-full px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-xs sm:text-sm font-semibold rounded-xl transition shadow-xs flex items-center justify-center space-x-1.5">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path></svg>
+                                    <span>Grant Access</span>
+                                </button>
+                            </div>
+                            <p class="text-[11px] text-slate-400 mt-1.5 leading-normal">Granted viewers will receive access to watch this specific video.</p>
+                        </div>
+                    <?php endif; ?>
+
+                    <div class="pt-4 border-t border-slate-100">
+                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Private Video Share Link</label>
+                        <div class="flex items-center space-x-2 p-1.5 bg-slate-50 border border-slate-200 rounded-xl">
+                            <input type="text" id="modalVideoShareUrl" readonly value="" 
+                                   class="flex-1 bg-transparent border-0 text-xs text-slate-600 focus:ring-0 px-2 font-mono truncate">
+                            <button onclick="copyVideoShareModalUrl()" class="px-3.5 py-2 bg-white border border-slate-200 hover:bg-slate-100 text-xs font-semibold text-slate-700 rounded-lg transition shadow-2xs shrink-0">
+                                Copy Link
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Allowed Emails List -->
+            <div class="md:col-span-7 flex flex-col min-h-0 md:border-l md:border-slate-100 md:pl-6">
+                <div class="flex items-center justify-between mb-3">
+                    <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider">People with video access</h4>
+                </div>
+                <div id="videoAccessListContainer" class="space-y-2 max-h-80 sm:max-h-[380px] overflow-y-auto pr-1 flex-1">
+                    <p class="text-xs text-slate-400 py-3 text-center">Loading access list...</p>
                 </div>
             </div>
         </div>
@@ -800,14 +888,24 @@ function removeProjectAccess(email) {
 }
 
 function renderProjectAccessList(list) {
+    const projShareBtn = document.getElementById('openProjectShareModalBtn');
+    if (projShareBtn) {
+        const textSpan = projShareBtn.querySelector('span');
+        if (textSpan) textSpan.textContent = `Share (${list ? list.length : 0})`;
+    }
     if (!projectAccessListContainer) return;
     if (!list || list.length === 0) {
         projectAccessListContainer.innerHTML = '<p class="text-xs text-slate-400 py-3 text-center">No emails granted project access yet.</p>';
         return;
     }
     projectAccessListContainer.innerHTML = list.map(item => {
+        const isGrantedByAdmin = item.granted_by_admin_id !== null && item.granted_by_admin_id !== undefined && item.granted_by_admin_id !== '';
         const adminName = item.granted_by_name || 'Admin';
         const dateStr = item.granted_at ? ' &bull; ' + item.granted_at.substring(0, 10) : '';
+        const accessText = isGrantedByAdmin
+            ? `Shared by <strong class="text-slate-700 font-semibold">${escapeHtml(adminName)}</strong>`
+            : `<span class="inline-flex items-center text-amber-700 font-medium">OTP Verification</span>`;
+
         return `
             <div class="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 border border-slate-100">
                 <div class="flex items-center space-x-3 min-w-0">
@@ -817,7 +915,7 @@ function renderProjectAccessList(list) {
                     <div class="min-w-0">
                         <p class="text-xs font-semibold text-slate-800 truncate">${escapeHtml(item.email)}</p>
                         <p class="text-[10px] text-slate-500">
-                            Shared by <strong class="text-slate-700 font-semibold">${escapeHtml(adminName)}</strong>${dateStr}
+                            ${accessText}${dateStr}
                         </p>
                     </div>
                 </div>
@@ -827,6 +925,144 @@ function renderProjectAccessList(list) {
             </div>
         `;
     }).join('');
+}
+
+// Video Share Modal Logic
+let currentShareVideoId = null;
+
+function openVideoShareModal(video) {
+    currentShareVideoId = video.id;
+    document.getElementById('videoShareModalTitle').textContent = video.title;
+    document.getElementById('modalVideoShareUrl').value = video.share_url;
+    document.getElementById('videoShareModal').classList.remove('hidden');
+    fetchVideoAccessList(video.id);
+}
+
+function closeVideoShareModal() {
+    document.getElementById('videoShareModal').classList.add('hidden');
+    currentShareVideoId = null;
+}
+
+function fetchVideoAccessList(videoId) {
+    const container = document.getElementById('videoAccessListContainer');
+    if (!container) return;
+    container.innerHTML = '<p class="text-xs text-slate-400 py-3 text-center">Loading access list...</p>';
+    fetch(`<?= getBaseUrl() ?>/ajax/share_access.php?video_id=${videoId}`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                renderVideoAccessList(data.access_list);
+            } else {
+                container.innerHTML = `<p class="text-xs text-rose-500 py-2 text-center">${escapeHtml(data.error || 'Failed to load access list.')}</p>`;
+            }
+        })
+        .catch(() => {
+            container.innerHTML = '<p class="text-xs text-rose-500 py-2 text-center">Error fetching access list.</p>';
+        });
+}
+
+function grantVideoShareAccess() {
+    const emailInput = document.getElementById('newVideoAccessEmail');
+    if (!emailInput || !currentShareVideoId) return;
+    const email = emailInput.value.trim();
+    if (!email) return;
+
+    fetch('<?= getBaseUrl() ?>/ajax/share_access.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            action: 'add',
+            video_id: currentShareVideoId,
+            email: email
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            emailInput.value = '';
+            renderVideoAccessList(data.access_list);
+            showToast('Video access granted to ' + email);
+        } else {
+            alert(data.error || 'Failed to grant video access');
+        }
+    });
+}
+
+function removeVideoShareAccess(email) {
+    if (!currentShareVideoId || !confirm('Remove video access for ' + email + '?')) return;
+    fetch('<?= getBaseUrl() ?>/ajax/share_access.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            action: 'remove',
+            video_id: currentShareVideoId,
+            email: email
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            renderVideoAccessList(data.access_list);
+            showToast('Video access removed for ' + email);
+        } else {
+            alert(data.error || 'Failed to remove access');
+        }
+    });
+}
+
+function renderVideoAccessList(list) {
+    if (currentShareVideoId) {
+        const shareBtn = document.getElementById(`videoShareBtn_${currentShareVideoId}`);
+        if (shareBtn) {
+            const textSpan = shareBtn.querySelector('span');
+            if (textSpan) textSpan.textContent = `Share (${list ? list.length : 0})`;
+        }
+    }
+    const container = document.getElementById('videoAccessListContainer');
+    if (!container) return;
+    if (!list || list.length === 0) {
+        container.innerHTML = '<p class="text-xs text-slate-400 py-3 text-center">No allowed emails granted video access yet.</p>';
+        return;
+    }
+    const isAdmin = <?= json_encode($isAdmin) ?>;
+    container.innerHTML = list.map(item => {
+        const isGrantedByAdmin = item.granted_by_admin_id !== null && item.granted_by_admin_id !== undefined && item.granted_by_admin_id !== '';
+        const adminName = item.granted_by_name || 'Admin';
+        const dateStr = item.granted_at ? ' &bull; ' + item.granted_at.substring(0, 10) : '';
+        const accessText = isGrantedByAdmin
+            ? `Shared by <strong class="text-slate-700 font-semibold">${escapeHtml(adminName)}</strong>`
+            : `<span class="inline-flex items-center text-amber-700 font-medium">OTP Verification</span>`;
+
+        return `
+            <div class="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 border border-slate-100">
+                <div class="flex items-center space-x-3 min-w-0">
+                    <div class="w-8 h-8 rounded-full bg-brand-50 text-brand-700 font-bold text-xs flex items-center justify-center uppercase shrink-0">
+                        ${escapeHtml(item.email.substring(0, 2))}
+                    </div>
+                    <div class="min-w-0">
+                        <p class="text-xs font-semibold text-slate-800 truncate">${escapeHtml(item.email)}</p>
+                        <p class="text-[10px] text-slate-500">
+                            ${accessText}${dateStr}
+                        </p>
+                    </div>
+                </div>
+                ${isAdmin ? `
+                    <button onclick="removeVideoShareAccess('${escapeHtml(item.email)}')" class="text-slate-400 hover:text-rose-600 p-1 text-xs font-medium shrink-0 ml-2">
+                        Remove
+                    </button>
+                ` : `
+                    <span class="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded font-medium shrink-0 ml-2">Has access</span>
+                `}
+            </div>
+        `;
+    }).join('');
+}
+
+function copyVideoShareModalUrl() {
+    const input = document.getElementById('modalVideoShareUrl');
+    if (!input) return;
+    copyToClipboard(input.value);
+    showToast('Video share link copied to clipboard!');
 }
 
 function setUserViewMode(mode) {

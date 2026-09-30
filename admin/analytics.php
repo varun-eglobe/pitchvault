@@ -13,7 +13,6 @@ $db = getDBConnection();
 
 $videoId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 $selectedEmail = isset($_GET['email']) ? strtolower(trim(sanitize($_GET['email']))) : '';
-$showProgress = isset($_GET['show_progress']) && $_GET['show_progress'] === '1';
 
 // Fetch video list for dropdown selector
 $isMaster = isMasterAdmin();
@@ -21,7 +20,14 @@ $assignedProjectIds = $isMaster ? [] : getEditorProjectIds($_SESSION['admin_id']
 $projIdsList = empty($assignedProjectIds) ? '0' : implode(',', array_map('intval', $assignedProjectIds));
 
 $whereClause = $isMaster ? "" : "WHERE v.project_id IN ($projIdsList)";
-$videos = $db->query("SELECT v.id, v.title, p.title as project_title FROM videos v JOIN projects p ON v.project_id = p.id $whereClause ORDER BY v.created_at DESC")->fetchAll();
+$videos = $db->query("
+    SELECT v.id, v.title, v.thumbnail_filename, v.duration, v.created_at, p.title as project_title,
+           (SELECT COUNT(*) FROM video_sessions WHERE video_id = v.id) as session_count
+    FROM videos v 
+    JOIN projects p ON v.project_id = p.id 
+    $whereClause 
+    ORDER BY v.created_at DESC
+")->fetchAll();
 
 if ($videoId <= 0 && !empty($videos)) {
     $videoId = (int)$videos[0]['id'];
@@ -103,45 +109,14 @@ if ($video) {
         $avgCompletionRate = round(($completedCount / count($sessions)) * 100);
     }
 
-    // Fetch timeline events for each session (filtering out progress pings unless requested)
+    // Fetch timeline events for each session (filtering out progress pings)
     foreach ($sessions as &$sess) {
-        $evQuery = "SELECT * FROM video_events WHERE session_id = :sid";
-        if (!$showProgress) {
-            $evQuery .= " AND event_type != 'progress'";
-        }
-        $evQuery .= " ORDER BY created_at ASC";
-
-        $stmtEv = $db->prepare($evQuery);
+        $stmtEv = $db->prepare("SELECT * FROM video_events WHERE session_id = :sid AND event_type != 'progress' ORDER BY created_at ASC");
         $stmtEv->execute(['sid' => $sess['id']]);
         $sess['events'] = $stmtEv->fetchAll();
     }
     unset($sess);
 }
-
-// 3. Fetch Share Access Audit Trail (Which Admin -> Which Recipient Email)
-$shareLogsSql = "
-    SELECT 'Project' as type, p.title as resource_title, pa.email as recipient_email, 
-           COALESCE(a.name, 'Admin') as granted_by_name, a.email as granted_by_email, 
-           pa.granted_at
-    FROM project_access pa
-    JOIN projects p ON pa.project_id = p.id
-    LEFT JOIN admins a ON pa.granted_by_admin_id = a.id
-    " . ($isMaster ? "" : "WHERE p.id IN ($projIdsList)") . "
-    
-    UNION ALL
-    
-    SELECT 'Video' as type, v.title as resource_title, va.email as recipient_email, 
-           COALESCE(a.name, 'Admin') as granted_by_name, a.email as granted_by_email, 
-           va.granted_at
-    FROM video_access va
-    JOIN videos v ON va.video_id = v.id
-    LEFT JOIN admins a ON va.granted_by_admin_id = a.id
-    " . ($isMaster ? "" : "WHERE v.project_id IN ($projIdsList)") . "
-    
-    ORDER BY granted_at DESC
-    LIMIT 30
-";
-$shareLogs = $db->query($shareLogsSql)->fetchAll();
 
 $pageTitle = "Video Analytics - PitchVault";
 include __DIR__ . '/../includes/header.php';
@@ -166,35 +141,111 @@ include __DIR__ . '/../includes/header.php';
             <p class="text-sm text-slate-500 mt-1">Key viewing milestones, watch times, and session timelines.</p>
         </div>
 
-        <!-- Video Filter Form & Options -->
+        <!-- Custom Video Selector Dropdown with Thumbnail Cover Image -->
         <div class="flex flex-wrap items-center gap-3">
-            <form method="GET" action="analytics" class="flex items-center space-x-2">
-                <select name="id" onchange="this.form.submit()" class="px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-700 focus:ring-2 focus:ring-brand-500 shadow-xs">
-                    <?php foreach ($videos as $v): ?>
-                        <option value="<?= $v['id'] ?>" <?= $v['id'] == $videoId ? 'selected' : '' ?>>
-                            <?= htmlspecialchars($v['title']) ?> (<?= htmlspecialchars($v['project_title']) ?>)
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-                <?php if (!empty($selectedEmail)): ?>
-                    <input type="hidden" name="email" value="<?= htmlspecialchars($selectedEmail) ?>">
-                <?php endif; ?>
-                <?php if ($showProgress): ?>
-                    <input type="hidden" name="show_progress" value="1">
-                <?php endif; ?>
-            </form>
+            <div class="relative inline-block text-left" id="videoDropdownContainer">
+                <!-- Dropdown Trigger Button -->
+                <button type="button" id="videoDropdownBtn" onclick="toggleVideoDropdown()" 
+                        class="inline-flex items-center justify-between gap-3 px-3 py-1.5 bg-white border border-slate-300 hover:border-brand-500 rounded-2xl text-xs font-semibold text-slate-800 shadow-xs transition-all w-full sm:w-auto">
+                    <?php 
+                    $currentVid = null;
+                    foreach ($videos as $v) {
+                        if ($v['id'] == $videoId) { $currentVid = $v; break; }
+                    }
+                    ?>
+                    <?php if ($currentVid): ?>
+                        <div class="flex items-center space-x-2.5 min-w-0">
+                            <div class="w-10 h-7 aspect-video rounded-md overflow-hidden bg-slate-900 shrink-0 border border-slate-200">
+                                <?php if (!empty($currentVid['thumbnail_filename'])): ?>
+                                    <img src="<?= getBaseUrl() ?>/uploads/thumbnails/<?= htmlspecialchars($currentVid['thumbnail_filename']) ?>" alt="" class="w-full h-full object-cover">
+                                <?php else: ?>
+                                    <div class="w-full h-full flex items-center justify-center bg-slate-800 text-slate-500">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path></svg>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
+                            <div class="text-left min-w-0">
+                                <span class="block text-xs font-bold text-slate-900 truncate max-w-[180px] sm:max-w-[220px]">
+                                    <?= htmlspecialchars($currentVid['title']) ?>
+                                </span>
+                                <span class="text-[10px] text-slate-500 font-medium truncate block">
+                                    <?= htmlspecialchars($currentVid['project_title']) ?>
+                                </span>
+                            </div>
+                        </div>
+                    <?php else: ?>
+                        <span class="text-slate-500">Select Video...</span>
+                    <?php endif; ?>
+                    
+                    <svg class="w-4 h-4 text-slate-400 shrink-0 ml-1 transform transition-transform duration-200" id="videoDropdownChevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </button>
 
-            <!-- Toggle Progress Pings Link -->
-            <?php
-            $toggleParams = ['id' => $videoId];
-            if (!empty($selectedEmail)) $toggleParams['email'] = $selectedEmail;
-            if (!$showProgress) $toggleParams['show_progress'] = '1';
-            $toggleUrl = 'analytics.php?' . http_build_query($toggleParams);
-            ?>
-            <a href="<?= $toggleUrl ?>" class="px-3 py-2 text-xs font-semibold rounded-xl border transition flex items-center space-x-1.5 <?= $showProgress ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50' ?>">
-                <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
-                <span><?= $showProgress ? 'Hide 5s Pings' : 'Include 5s Pings' ?></span>
-            </a>
+                <!-- Dropdown Menu Box (Responsive position: left-aligned on mobile to prevent left screen clipping) -->
+                <div id="videoDropdownMenu" class="hidden absolute left-0 md:left-auto md:right-0 mt-2 w-[calc(100vw-2.5rem)] max-w-sm sm:w-96 bg-white rounded-2xl border border-slate-200 shadow-2xl z-50 overflow-hidden transform transition-all">
+                    <!-- Search Input -->
+                    <div class="p-3 border-b border-slate-100 bg-slate-50/80">
+                        <div class="relative">
+                            <input type="text" id="videoSearchInput" onkeyup="filterVideoDropdownOptions()" placeholder="Search video title or project..." 
+                                   class="w-full pl-9 pr-3.5 py-2 bg-white border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-brand-500 focus:border-brand-500">
+                            <svg class="w-4 h-4 text-slate-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                            </svg>
+                        </div>
+                    </div>
+
+                    <!-- Video Items List -->
+                    <div class="max-h-80 overflow-y-auto p-1.5 space-y-1" id="videoOptionsList">
+                        <?php foreach ($videos as $v): ?>
+                            <?php
+                            $isSelected = ($v['id'] == $videoId);
+                            $optUrlParams = ['id' => $v['id']];
+                            if (!empty($selectedEmail)) $optUrlParams['email'] = $selectedEmail;
+                            $optUrl = 'analytics?' . http_build_query($optUrlParams);
+                            ?>
+                            <a href="<?= $optUrl ?>" 
+                               class="video-option-item flex items-center justify-between p-2 rounded-xl transition <?= $isSelected ? 'bg-brand-50 border border-brand-200/80' : 'hover:bg-slate-50 border border-transparent' ?>"
+                               data-search="<?= htmlspecialchars(strtolower($v['title'] . ' ' . $v['project_title'])) ?>">
+                                
+                                <div class="flex items-center space-x-3 min-w-0">
+                                    <!-- Thumbnail Badge -->
+                                    <div class="w-12 h-8 aspect-video rounded-lg overflow-hidden bg-slate-950 shrink-0 border border-slate-200 relative">
+                                        <?php if (!empty($v['thumbnail_filename'])): ?>
+                                            <img src="<?= getBaseUrl() ?>/uploads/thumbnails/<?= htmlspecialchars($v['thumbnail_filename']) ?>" alt="" class="w-full h-full object-cover">
+                                        <?php else: ?>
+                                            <div class="w-full h-full flex items-center justify-center bg-slate-900 text-slate-600">
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path></svg>
+                                            </div>
+                                        <?php endif; ?>
+                                    </div>
+
+                                    <!-- Video Title & Project Tag -->
+                                    <div class="min-w-0">
+                                        <p class="text-xs font-bold text-slate-900 truncate <?= $isSelected ? 'text-brand-700' : '' ?>">
+                                            <?= htmlspecialchars($v['title']) ?>
+                                        </p>
+                                        <div class="flex items-center space-x-1.5 text-[10px] text-slate-500 font-medium mt-0.5">
+                                            <span class="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-semibold truncate max-w-[130px]"><?= htmlspecialchars($v['project_title']) ?></span>
+                                            <span>&bull;</span>
+                                            <span><?= (int)($v['session_count'] ?? 0) ?> plays</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Selected Indicator -->
+                                <?php if ($isSelected): ?>
+                                    <div class="w-5 h-5 rounded-full bg-brand-600 text-white flex items-center justify-center shrink-0 ml-2">
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg>
+                                    </div>
+                                <?php endif; ?>
+                            </a>
+                        <?php endforeach; ?>
+                        
+                        <p id="noVideoFoundMsg" class="hidden text-xs text-slate-400 text-center py-6">No matching videos found.</p>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -409,63 +460,6 @@ include __DIR__ . '/../includes/header.php';
         </div>
     <?php endif; ?>
 
-    <!-- Share Tracking Audit Log Card (Which Admin -> Which Recipient Email) -->
-    <div class="mt-8 bg-white rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-xs">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4 pb-3 border-b border-slate-100">
-            <div>
-                <h3 class="text-base font-bold text-slate-900 tracking-tight flex items-center space-x-2">
-                    <svg class="w-5 h-5 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path></svg>
-                    <span>Share Access Audit Trail</span>
-                </h3>
-                <p class="text-xs text-slate-500 mt-0.5">Tracking which admin user granted access to which recipient email address</p>
-            </div>
-            <span class="text-xs font-semibold px-2.5 py-1 bg-slate-100 text-slate-700 rounded-lg self-start sm:self-auto"><?= count($shareLogs) ?> Recent Event<?= count($shareLogs) != 1 ? 's' : '' ?></span>
-        </div>
-
-        <?php if (empty($shareLogs)): ?>
-            <p class="text-xs text-slate-400 py-6 text-center">No share access events recorded yet.</p>
-        <?php else: ?>
-            <div class="overflow-x-auto">
-                <table class="w-full text-left text-xs">
-                    <thead>
-                        <tr class="border-b border-slate-200/80 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
-                            <th class="pb-2.5">Shared By (Admin)</th>
-                            <th class="pb-2.5">Shared To (Recipient)</th>
-                            <th class="pb-2.5">Access Scope</th>
-                            <th class="pb-2.5 text-right">Date & Time</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-100">
-                        <?php foreach ($shareLogs as $log): ?>
-                            <tr class="hover:bg-slate-50/80 transition">
-                                <td class="py-3 font-semibold text-slate-900">
-                                    <span class="inline-flex items-center space-x-2">
-                                        <span class="w-6 h-6 rounded-full bg-brand-50 text-brand-700 font-bold text-[10px] flex items-center justify-center uppercase shrink-0">
-                                            <?= substr($log['granted_by_name'] ?? 'A', 0, 2) ?>
-                                        </span>
-                                        <span><?= htmlspecialchars($log['granted_by_name'] ?? 'Admin') ?></span>
-                                    </span>
-                                </td>
-                                <td class="py-3 font-medium text-slate-800">
-                                    <?= htmlspecialchars($log['recipient_email']) ?>
-                                </td>
-                                <td class="py-3">
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider <?= $log['type'] === 'Project' ? 'bg-indigo-50 text-indigo-700 border border-indigo-200/80' : 'bg-brand-50 text-brand-700 border border-brand-200/80' ?> mr-2">
-                                        <?= $log['type'] ?>
-                                    </span>
-                                    <span class="font-medium text-slate-700"><?= htmlspecialchars($log['resource_title']) ?></span>
-                                </td>
-                                <td class="py-3 text-right text-slate-500 font-mono text-[11px]">
-                                    <?= date('M d, Y h:i A', strtotime($log['granted_at'])) ?>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
-        <?php endif; ?>
-    </div>
-
 </div>
 
 <!-- Milestone Events Modal -->
@@ -622,6 +616,72 @@ function renderModalTimeline(events) {
         `;
     }).join('');
 }
+
+// Custom Video Dropdown Logic
+function toggleVideoDropdown() {
+    const menu = document.getElementById('videoDropdownMenu');
+    const chevron = document.getElementById('videoDropdownChevron');
+    const searchInput = document.getElementById('videoSearchInput');
+    
+    if (menu) {
+        const isHidden = menu.classList.contains('hidden');
+        if (isHidden) {
+            menu.classList.remove('hidden');
+            if (chevron) chevron.classList.add('rotate-180');
+            if (searchInput) {
+                searchInput.value = '';
+                filterVideoDropdownOptions();
+                setTimeout(() => searchInput.focus(), 50);
+            }
+        } else {
+            menu.classList.add('hidden');
+            if (chevron) chevron.classList.remove('rotate-180');
+        }
+    }
+}
+
+function filterVideoDropdownOptions() {
+    const q = (document.getElementById('videoSearchInput')?.value || '').toLowerCase().trim();
+    const items = document.querySelectorAll('.video-option-item');
+    let matchCount = 0;
+
+    items.forEach(item => {
+        const searchData = item.getAttribute('data-search') || '';
+        if (searchData.includes(q)) {
+            item.classList.remove('hidden');
+            matchCount++;
+        } else {
+            item.classList.add('hidden');
+        }
+    });
+
+    const noMsg = document.getElementById('noVideoFoundMsg');
+    if (noMsg) {
+        if (matchCount === 0) noMsg.classList.remove('hidden');
+        else noMsg.classList.add('hidden');
+    }
+}
+
+document.addEventListener('click', (e) => {
+    const container = document.getElementById('videoDropdownContainer');
+    const menu = document.getElementById('videoDropdownMenu');
+    const chevron = document.getElementById('videoDropdownChevron');
+    if (container && !container.contains(e.target) && menu && !menu.classList.contains('hidden')) {
+        menu.classList.add('hidden');
+        if (chevron) chevron.classList.remove('rotate-180');
+    }
+});
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        const menu = document.getElementById('videoDropdownMenu');
+        const chevron = document.getElementById('videoDropdownChevron');
+        if (menu && !menu.classList.contains('hidden')) {
+            menu.classList.add('hidden');
+            if (chevron) chevron.classList.remove('rotate-180');
+        }
+    }
+});
 </script>
 
 <?php include __DIR__ . '/../includes/footer.php'; ?>

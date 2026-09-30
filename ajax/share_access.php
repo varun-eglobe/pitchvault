@@ -12,9 +12,9 @@ if (!isAdminLoggedIn()) {
 }
 
 $input = json_decode(file_get_contents('php://input'), true) ?? $_POST;
-$action = sanitize($input['action'] ?? 'list');
-$videoId = isset($input['video_id']) ? (int)$input['video_id'] : 0;
-$email = strtolower(trim(sanitize($input['email'] ?? '')));
+$action = sanitize($input['action'] ?? $_GET['action'] ?? 'list');
+$videoId = isset($input['video_id']) ? (int)$input['video_id'] : (isset($_GET['video_id']) ? (int)$_GET['video_id'] : 0);
+$email = strtolower(trim(sanitize($input['email'] ?? $_GET['email'] ?? '')));
 
 if ($videoId <= 0) {
     http_response_code(400);
@@ -27,7 +27,7 @@ $db = getDBConnection();
 $currentAdminId = $_SESSION['admin_id'] ?? null;
 
 // Perform Requested Action
-if ($action === 'add') {
+if ($action === 'add' || $action === 'grant') {
     if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
         http_response_code(422);
         echo json_encode(['error' => 'Please enter a valid email address.']);
@@ -72,7 +72,7 @@ if (isSalesAdmin()) {
 
 $stmt = $db->prepare("
     SELECT va.email, va.granted_at, va.granted_by_admin_id, 
-           COALESCE(a.name, 'Admin') as granted_by_name, 
+           a.name as granted_by_name, 
            a.email as granted_by_email
     FROM video_access va 
     LEFT JOIN admins a ON va.granted_by_admin_id = a.id 

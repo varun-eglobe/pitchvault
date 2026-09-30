@@ -101,6 +101,7 @@ $search = trim(sanitize($_GET['search'] ?? ''));
 $adminFilter = $isSales ? (string)$currentAdminId : sanitize($_GET['admin_id'] ?? 'all');
 $typeFilter = sanitize($_GET['type'] ?? 'all');
 $projectFilter = sanitize($_GET['project_id'] ?? 'all');
+$dateFilter = sanitize($_GET['date_range'] ?? 'all');
 $sort = sanitize($_GET['sort'] ?? 'newest');
 
 // Fetch Admins list for dropdown filter
@@ -206,6 +207,20 @@ if ($search !== '') {
     $queryParams['s4'] = '%' . $search . '%';
 }
 
+if ($dateFilter === 'this_month') {
+    $queryConditions[] = "shares.granted_at >= DATE_FORMAT(NOW(), '%Y-%m-01 00:00:00')";
+} elseif ($dateFilter === 'last_month') {
+    $queryConditions[] = "shares.granted_at >= DATE_FORMAT(NOW() - INTERVAL 1 MONTH, '%Y-%m-01 00:00:00') AND shares.granted_at < DATE_FORMAT(NOW(), '%Y-%m-01 00:00:00')";
+} elseif ($dateFilter === 'last_30_days') {
+    $queryConditions[] = "shares.granted_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)";
+} elseif ($dateFilter === 'last_3_months') {
+    $queryConditions[] = "shares.granted_at >= DATE_SUB(NOW(), INTERVAL 3 MONTH)";
+} elseif ($dateFilter === 'last_6_months') {
+    $queryConditions[] = "shares.granted_at >= DATE_SUB(NOW(), INTERVAL 6 MONTH)";
+} elseif ($dateFilter === 'this_year') {
+    $queryConditions[] = "shares.granted_at >= DATE_FORMAT(NOW(), '%Y-01-01 00:00:00')";
+}
+
 $whereClauseStr = !empty($queryConditions) ? "WHERE " . implode(" AND ", $queryConditions) : "";
 
 $orderByStr = "ORDER BY shares.granted_at DESC";
@@ -227,7 +242,7 @@ $mainSql = "
             pa.email as recipient_email,
             pa.granted_at,
             pa.granted_by_admin_id,
-            COALESCE(a.name, 'Admin') as admin_name,
+            COALESCE(a.name, 'OTP Verification') as admin_name,
             COALESCE(a.email, '') as admin_email,
             COALESCE(a.role, 'master') as admin_role
         FROM project_access pa
@@ -247,7 +262,7 @@ $mainSql = "
             va.email as recipient_email,
             va.granted_at,
             va.granted_by_admin_id,
-            COALESCE(a.name, 'Admin') as admin_name,
+            COALESCE(a.name, 'OTP Verification') as admin_name,
             COALESCE(a.email, '') as admin_email,
             COALESCE(a.role, 'master') as admin_role
         FROM video_access va
@@ -374,13 +389,13 @@ require_once __DIR__ . '/../includes/header.php';
         <form method="GET" action="<?= getBaseUrl() ?>/admin/shares" id="filterForm" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 sm:gap-4 items-end">
             
             <!-- Search Query Input with Instant Live Filter -->
-            <div class="sm:col-span-2 lg:col-span-4">
+            <div class="sm:col-span-2 lg:col-span-3">
                 <label for="search" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Search Email, Resource or Admin</label>
                 <div class="relative rounded-xl shadow-xs">
                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <svg class="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                     </div>
-                    <input type="text" name="search" id="search" value="<?= htmlspecialchars($search) ?>" placeholder="Type recipient email, project, admin..." class="block w-full pl-9 pr-8 py-2 text-xs sm:text-sm border-slate-200 rounded-xl focus:ring-brand-500 focus:border-brand-500 bg-slate-50/50 hover:bg-white transition" autocomplete="off">
+                    <input type="text" name="search" id="search" value="<?= htmlspecialchars($search) ?>" placeholder="Type email, project, admin..." class="block w-full pl-9 pr-8 py-2 text-xs sm:text-sm border border-slate-200 rounded-xl focus:ring-brand-500 focus:border-brand-500 bg-white hover:border-slate-300 transition" autocomplete="off">
                     <?php if (!empty($search)): ?>
                         <a href="<?= getBaseUrl() ?>/admin/shares?<?= http_build_query(array_merge($_GET, ['search' => ''])) ?>" class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 transition" title="Clear search">
                             &times;
@@ -389,16 +404,31 @@ require_once __DIR__ . '/../includes/header.php';
                 </div>
             </div>
 
+            <!-- Filter by Date Range / Time Period -->
+            <div class="sm:col-span-1 lg:col-span-2">
+                <label for="date_range" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Time Period</label>
+                <select name="date_range" id="date_range" onchange="this.form.submit()" class="block w-full py-2 px-3 text-xs sm:text-sm border border-slate-200 rounded-xl focus:ring-brand-500 focus:border-brand-500 bg-white hover:border-slate-300 transition font-medium text-slate-800">
+                    <option value="all" <?= $dateFilter === 'all' ? 'selected' : '' ?>>All Time</option>
+                    <option value="this_month" <?= $dateFilter === 'this_month' ? 'selected' : '' ?>>This Month</option>
+                    <option value="last_month" <?= $dateFilter === 'last_month' ? 'selected' : '' ?>>Last Month</option>
+                    <option value="last_30_days" <?= $dateFilter === 'last_30_days' ? 'selected' : '' ?>>Last 30 Days</option>
+                    <option value="last_3_months" <?= $dateFilter === 'last_3_months' ? 'selected' : '' ?>>Last 3 Months</option>
+                    <option value="last_6_months" <?= $dateFilter === 'last_6_months' ? 'selected' : '' ?>>Last 6 Months</option>
+                    <option value="this_year" <?= $dateFilter === 'this_year' ? 'selected' : '' ?>>This Year</option>
+                </select>
+            </div>
+
             <!-- Filter by Shared By Admin -->
             <div class="sm:col-span-1 lg:col-span-2">
-                <label for="admin_id" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Shared By</label>
+                <label for="admin_id" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Access Through</label>
                 <?php if ($isSales): ?>
-                    <select name="admin_id" id="admin_id" disabled class="block w-full py-2 px-3 text-xs sm:text-sm border-slate-200 rounded-xl bg-slate-100 text-slate-500 cursor-not-allowed font-medium">
+                    <select name="admin_id" id="admin_id" disabled class="block w-full py-2 px-3 text-xs sm:text-sm border border-slate-200 rounded-xl bg-slate-100 text-slate-500 cursor-not-allowed font-medium">
                         <option value="<?= $currentAdminId ?>" selected><?= htmlspecialchars($_SESSION['admin_name'] ?? 'My Account') ?> (Your Shares)</option>
                     </select>
                 <?php else: ?>
-                    <select name="admin_id" id="admin_id" onchange="this.form.submit()" class="block w-full py-2 px-3 text-xs sm:text-sm border-slate-200 rounded-xl focus:ring-brand-500 focus:border-brand-500 bg-slate-50/50 hover:bg-white transition">
-                        <option value="all" <?= $adminFilter === 'all' ? 'selected' : '' ?>>All Admins</option>
+                    <select name="admin_id" id="admin_id" onchange="this.form.submit()" class="block w-full py-2 px-3 text-xs sm:text-sm border border-slate-200 rounded-xl focus:ring-brand-500 focus:border-brand-500 bg-white hover:border-slate-300 transition">
+                        <option value="all" <?= $adminFilter === 'all' ? 'selected' : '' ?>>All Sources</option>
+                        <option value="unassigned" <?= ($adminFilter === 'unassigned' || $adminFilter === '0') ? 'selected' : '' ?>>OTP Verification (Self Access)</option>
                         <?php foreach ($allAdmins as $adm): ?>
                             <option value="<?= $adm['id'] ?>" <?= (string)$adminFilter === (string)$adm['id'] ? 'selected' : '' ?>>
                                 <?= htmlspecialchars($adm['name']) ?>
@@ -409,19 +439,19 @@ require_once __DIR__ . '/../includes/header.php';
             </div>
 
             <!-- Filter by Access Type -->
-            <div class="sm:col-span-1 lg:col-span-2">
-                <label for="type" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Access Scope</label>
-                <select name="type" id="type" onchange="this.form.submit()" class="block w-full py-2 px-3 text-xs sm:text-sm border-slate-200 rounded-xl focus:ring-brand-500 focus:border-brand-500 bg-slate-50/50 hover:bg-white transition">
-                    <option value="all" <?= $typeFilter === 'all' ? 'selected' : '' ?>>All Types</option>
-                    <option value="project" <?= $typeFilter === 'project' ? 'selected' : '' ?>>Project Access</option>
-                    <option value="video" <?= $typeFilter === 'video' ? 'selected' : '' ?>>Video Access</option>
+            <div class="sm:col-span-1 lg:col-span-1">
+                <label for="type" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Scope</label>
+                <select name="type" id="type" onchange="this.form.submit()" class="block w-full py-2 px-2.5 text-xs sm:text-sm border border-slate-200 rounded-xl focus:ring-brand-500 focus:border-brand-500 bg-white hover:border-slate-300 transition">
+                    <option value="all" <?= $typeFilter === 'all' ? 'selected' : '' ?>>All</option>
+                    <option value="project" <?= $typeFilter === 'project' ? 'selected' : '' ?>>Project</option>
+                    <option value="video" <?= $typeFilter === 'video' ? 'selected' : '' ?>>Video</option>
                 </select>
             </div>
 
             <!-- Filter by Project -->
             <div class="sm:col-span-1 lg:col-span-2">
                 <label for="project_id" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Project</label>
-                <select name="project_id" id="project_id" onchange="this.form.submit()" class="block w-full py-2 px-3 text-xs sm:text-sm border-slate-200 rounded-xl focus:ring-brand-500 focus:border-brand-500 bg-slate-50/50 hover:bg-white transition">
+                <select name="project_id" id="project_id" onchange="this.form.submit()" class="block w-full py-2 px-3 text-xs sm:text-sm border border-slate-200 rounded-xl focus:ring-brand-500 focus:border-brand-500 bg-white hover:border-slate-300 transition">
                     <option value="all" <?= $projectFilter === 'all' ? 'selected' : '' ?>>All Projects</option>
                     <?php foreach ($allProjects as $proj): ?>
                         <option value="<?= $proj['id'] ?>" <?= (string)$projectFilter === (string)$proj['id'] ? 'selected' : '' ?>>
@@ -435,14 +465,14 @@ require_once __DIR__ . '/../includes/header.php';
             <div class="sm:col-span-1 lg:col-span-2 flex items-center space-x-2">
                 <div class="flex-1">
                     <label for="sort" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Sort</label>
-                    <select name="sort" id="sort" onchange="this.form.submit()" class="block w-full py-2 px-2.5 text-xs sm:text-sm border-slate-200 rounded-xl focus:ring-brand-500 focus:border-brand-500 bg-slate-50/50 hover:bg-white transition">
+                    <select name="sort" id="sort" onchange="this.form.submit()" class="block w-full py-2 px-2.5 text-xs sm:text-sm border border-slate-200 rounded-xl focus:ring-brand-500 focus:border-brand-500 bg-white hover:border-slate-300 transition">
                         <option value="newest" <?= $sort === 'newest' ? 'selected' : '' ?>>Newest</option>
                         <option value="oldest" <?= $sort === 'oldest' ? 'selected' : '' ?>>Oldest</option>
                         <option value="email_asc" <?= $sort === 'email_asc' ? 'selected' : '' ?>>Email (A-Z)</option>
                     </select>
                 </div>
 
-                <?php if ($search !== '' || $adminFilter !== 'all' || $typeFilter !== 'all' || $projectFilter !== 'all' || $sort !== 'newest'): ?>
+                <?php if ($search !== '' || $adminFilter !== 'all' || $typeFilter !== 'all' || $projectFilter !== 'all' || $dateFilter !== 'all' || $sort !== 'newest'): ?>
                     <div class="pt-5">
                         <a href="<?= getBaseUrl() ?>/admin/shares" class="p-2 rounded-xl border border-slate-200 bg-white text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition inline-flex items-center justify-center shrink-0" title="Reset all filters">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
@@ -501,7 +531,7 @@ require_once __DIR__ . '/../includes/header.php';
                         <tr class="border-b border-slate-200 bg-slate-50/80 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                             <th scope="col" class="py-3.5 px-6">Recipient Email</th>
                             <th scope="col" class="py-3.5 px-6">Resource / Scope</th>
-                            <th scope="col" class="py-3.5 px-6">Shared By Admin</th>
+                            <th scope="col" class="py-3.5 px-6">Access Through</th>
                             <th scope="col" class="py-3.5 px-6">Granted Date</th>
                             <th scope="col" class="py-3.5 px-6 text-right">Actions</th>
                         </tr>
@@ -551,17 +581,29 @@ require_once __DIR__ . '/../includes/header.php';
 
                                 <!-- Shared By Admin -->
                                 <td class="py-4 px-6">
-                                    <div class="flex items-center space-x-2">
-                                        <div class="w-7 h-7 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center text-xs font-bold shrink-0">
-                                            <?= substr($share['admin_name'], 0, 1) ?>
+                                    <?php if (!empty($share['granted_by_admin_id'])): ?>
+                                        <div class="flex items-center space-x-2">
+                                            <div class="w-7 h-7 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center text-xs font-bold shrink-0">
+                                                <?= substr($share['admin_name'], 0, 1) ?>
+                                            </div>
+                                            <div>
+                                                <span class="font-semibold text-slate-800 text-xs block"><?= htmlspecialchars($share['admin_name']) ?></span>
+                                                <?php if (!empty($share['admin_email'])): ?>
+                                                    <span class="text-[11px] text-slate-400 block"><?= htmlspecialchars($share['admin_email']) ?></span>
+                                                <?php endif; ?>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <span class="font-semibold text-slate-800 text-xs block"><?= htmlspecialchars($share['admin_name']) ?></span>
-                                            <?php if (!empty($share['admin_email'])): ?>
-                                                <span class="text-[11px] text-slate-400 block"><?= htmlspecialchars($share['admin_email']) ?></span>
-                                            <?php endif; ?>
+                                    <?php else: ?>
+                                        <div class="flex items-center space-x-2">
+                                            <div class="w-7 h-7 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center text-xs font-bold shrink-0" title="Self Access via Email OTP Verification">
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                                            </div>
+                                            <div>
+                                                <span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200/80 inline-block">OTP Verification</span>
+                                                <span class="text-[10px] text-slate-400 block mt-0.5">Self-access via code</span>
+                                            </div>
                                         </div>
-                                    </div>
+                                    <?php endif; ?>
                                 </td>
 
                                 <!-- Granted Date -->
@@ -660,8 +702,12 @@ require_once __DIR__ . '/../includes/header.php';
                                 <?php endif; ?>
                             </div>
                             <div class="flex items-center justify-between">
-                                <span class="text-slate-400 font-medium">Shared By:</span>
-                                <span class="font-medium text-slate-700"><?= htmlspecialchars($share['admin_name']) ?></span>
+                                <span class="text-slate-400 font-medium">Access Through:</span>
+                                <?php if (!empty($share['granted_by_admin_id'])): ?>
+                                    <span class="font-medium text-slate-700"><?= htmlspecialchars($share['admin_name']) ?></span>
+                                <?php else: ?>
+                                    <span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-800 border border-amber-200 font-sans">OTP Verification</span>
+                                <?php endif; ?>
                             </div>
                             <div class="flex items-center justify-between">
                                 <span class="text-slate-400 font-medium">Granted:</span>

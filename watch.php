@@ -147,7 +147,7 @@ $isAuthorized = $isAdmin || (!empty($viewerEmail) && hasVideoAccess($vId, $viewe
 if (isSalesAdmin()) {
     $stmtAccess = $db->prepare("
         SELECT va.email, va.granted_at, va.granted_by_admin_id, 
-               COALESCE(a.name, 'Admin') as granted_by_name, 
+               a.name as granted_by_name, 
                a.email as granted_by_email
         FROM video_access va 
         LEFT JOIN admins a ON va.granted_by_admin_id = a.id 
@@ -158,7 +158,7 @@ if (isSalesAdmin()) {
 } else {
     $stmtAccess = $db->prepare("
         SELECT va.email, va.granted_at, va.granted_by_admin_id, 
-               COALESCE(a.name, 'Admin') as granted_by_name, 
+               a.name as granted_by_name, 
                a.email as granted_by_email
         FROM video_access va 
         LEFT JOIN admins a ON va.granted_by_admin_id = a.id 
@@ -389,7 +389,7 @@ include __DIR__ . '/includes/header.php';
                         <?php if (!empty($video['updated_at']) && strtotime($video['updated_at']) > (strtotime($video['created_at']) + 60)): ?>
                             <span class="text-slate-400 text-xs hidden sm:inline">&bull;</span>
                             <span class="text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/80 text-xs font-semibold inline-flex items-center" title="Reuploaded / Last Updated on <?= date('M d, Y h:i A', strtotime($video['updated_at'])) ?>">
-                                Updated: <?= date('M d, Y', strtotime($video['updated_at'])) ?>
+                                Updated: <?= date('M d, Y, g:i A', strtotime($video['updated_at'])) ?>
                             </span>
                         <?php endif; ?>
                     <?php endif; ?>
@@ -405,7 +405,7 @@ include __DIR__ . '/includes/header.php';
                         </button>
                         <button id="openShareModalBtn" class="flex-1 sm:flex-initial inline-flex items-center justify-center space-x-1.5 px-3 py-2 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-xl text-xs transition shadow-xs">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path></svg>
-                            <span>Share</span>
+                            <span>Share (<?= count($accessList) ?>)</span>
                         </button>
 
                         <button id="openDocsModalBtn" class="flex-1 sm:flex-initial inline-flex items-center justify-center space-x-1.5 px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/80 font-semibold rounded-xl text-xs transition shadow-2xs">
@@ -540,7 +540,7 @@ include __DIR__ . '/includes/header.php';
                                         <span class="text-slate-400 text-[11px]">
                                             Uploaded: <?= date('M d, Y', strtotime($ov['created_at'])) ?>
                                             <?php if (!empty($ov['updated_at']) && strtotime($ov['updated_at']) > (strtotime($ov['created_at']) + 60)): ?>
-                                                &bull; <span class="text-amber-700 font-semibold" title="Reuploaded / Last Updated">Updated: <?= date('M d, Y', strtotime($ov['updated_at'])) ?></span>
+                                                &bull; <span class="text-amber-700 font-semibold" title="Reuploaded / Last Updated">Updated: <?= date('M d, Y, g:i A', strtotime($ov['updated_at'])) ?></span>
                                             <?php endif; ?>
                                         </span>
                                     <?php else: ?>
@@ -564,52 +564,60 @@ include __DIR__ . '/includes/header.php';
 </div>
 
 <!-- Google Drive Style Share Modal -->
-<div id="shareModal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
-    <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full border border-slate-200 overflow-hidden transform transition-all">
+<div id="shareModal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-3xl sm:max-w-4xl w-full border border-slate-200 overflow-hidden my-auto max-h-[90vh] flex flex-col transform transition-all">
         <!-- Modal Header -->
-        <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-            <div class="flex items-center space-x-2">
-                <div class="w-8 h-8 bg-brand-50 text-brand-600 rounded-lg flex items-center justify-center">
+        <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50/50">
+            <div class="flex items-center space-x-2.5">
+                <div class="w-8 h-8 bg-brand-50 text-brand-600 rounded-xl flex items-center justify-center">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
                 </div>
-                <h3 class="font-bold text-slate-900 text-lg">Share "<?= htmlspecialchars($video['title']) ?>"</h3>
+                <h3 class="font-bold text-slate-900 text-base sm:text-lg">Share "<?= htmlspecialchars($video['title']) ?>"</h3>
             </div>
-            <button id="closeShareModalBtn" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100">
+            <button id="closeShareModalBtn" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-xl hover:bg-slate-100 transition">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
             </button>
         </div>
 
-        <div class="p-6 space-y-6">
-            <!-- Add Email Section (Admin Mode) -->
-            <?php if ($isAdmin): ?>
+        <!-- 2-Column Grid Body -->
+        <div class="p-6 grid grid-cols-1 md:grid-cols-12 gap-6 overflow-y-auto">
+            <!-- Left Column: Grant Access & Share Link -->
+            <div class="md:col-span-5 space-y-6 flex flex-col justify-between">
                 <div>
-                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">Grant Access to Email</label>
-                    <div class="flex space-x-2">
-                        <input type="email" id="newAccessEmail" placeholder="john@domain.com" 
-                               class="flex-1 px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500">
-                        <button id="addAccessBtn" class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-xl transition shrink-0">
-                            Grant Access
-                        </button>
-                    </div>
-                </div>
-            <?php endif; ?>
+                    <?php if ($isAdmin): ?>
+                        <div class="mb-5">
+                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Grant Access to Email</label>
+                            <div class="space-y-2">
+                                <input type="email" id="newAccessEmail" placeholder="john@domain.com" 
+                                       class="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-300 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition">
+                                <button id="addAccessBtn" class="w-full px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-xs sm:text-sm font-semibold rounded-xl transition shadow-xs flex items-center justify-center space-x-1.5">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path></svg>
+                                    <span>Grant Access</span>
+                                </button>
+                            </div>
+                            <p class="text-[11px] text-slate-400 mt-1.5 leading-normal">Granted viewers will receive direct authorization to view this video asset.</p>
+                        </div>
+                    <?php endif; ?>
 
-            <!-- Copy Link Box -->
-            <div>
-                <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">Private Share Link</label>
-                <div class="flex items-center space-x-2 p-1.5 bg-slate-50 border border-slate-200 rounded-xl">
-                    <input type="text" id="shareUrlInput" readonly value="<?= getBaseUrl() ?>/watch?v=<?= urlencode($vKey) ?>" 
-                           class="flex-1 bg-transparent border-0 text-xs text-slate-600 focus:ring-0 px-2 font-mono">
-                    <button id="modalCopyBtn" class="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-100 text-xs font-semibold text-slate-700 rounded-lg transition shadow-xs">
-                        Copy Link
-                    </button>
+                    <div class="pt-4 border-t border-slate-100">
+                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Private Video Share Link</label>
+                        <div class="flex items-center space-x-2 p-1.5 bg-slate-50 border border-slate-200 rounded-xl">
+                            <input type="text" id="shareUrlInput" readonly value="<?= getBaseUrl() ?>/watch?v=<?= urlencode($vKey) ?>" 
+                                   class="flex-1 bg-transparent border-0 text-xs text-slate-600 focus:ring-0 px-2 font-mono truncate">
+                            <button id="modalCopyBtn" class="px-3.5 py-2 bg-white border border-slate-200 hover:bg-slate-100 text-xs font-semibold text-slate-700 rounded-lg transition shadow-2xs shrink-0">
+                                Copy Link
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <!-- List of People with Access -->
-            <div>
-                <h4 class="text-xs font-semibold text-slate-700 uppercase tracking-wider mb-3">People with access</h4>
-                <div id="accessListContainer" class="space-y-2 max-h-48 overflow-y-auto pr-1">
+            <!-- Right Column: Allowed Emails List -->
+            <div class="md:col-span-7 flex flex-col min-h-0 md:border-l md:border-slate-100 md:pl-6">
+                <div class="flex items-center justify-between mb-3">
+                    <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider">People with access</h4>
+                </div>
+                <div id="accessListContainer" class="space-y-2 max-h-80 sm:max-h-[380px] overflow-y-auto pr-1 flex-1">
                     <?php foreach ($accessList as $acc): ?>
                         <div class="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 border border-slate-100">
                             <div class="flex items-center space-x-3 min-w-0">
@@ -619,7 +627,11 @@ include __DIR__ . '/includes/header.php';
                                 <div class="min-w-0">
                                     <p class="text-xs font-semibold text-slate-800 truncate"><?= htmlspecialchars($acc['email']) ?></p>
                                     <p class="text-[10px] text-slate-500">
-                                        Shared by <strong class="text-slate-700 font-semibold"><?= htmlspecialchars($acc['granted_by_name'] ?? 'Admin') ?></strong> &bull; <?= date('M d, Y', strtotime($acc['granted_at'])) ?>
+                                        <?php if (!empty($acc['granted_by_admin_id'])): ?>
+                                            Shared by <strong class="text-slate-700 font-semibold"><?= htmlspecialchars($acc['granted_by_name'] ?? 'Admin') ?></strong> &bull; <?= date('M d, Y', strtotime($acc['granted_at'])) ?>
+                                        <?php else: ?>
+                                            <span class="inline-flex items-center text-amber-700 font-medium">OTP Verification</span> &bull; <?= date('M d, Y', strtotime($acc['granted_at'])) ?>
+                                        <?php endif; ?>
                                     </p>
                                 </div>
                             </div>
@@ -794,29 +806,43 @@ function removeAccess(email) {
 }
 
 function renderAccessList(list) {
+    const openShareModalBtn = document.getElementById('openShareModalBtn');
+    if (openShareModalBtn) {
+        const span = openShareModalBtn.querySelector('span');
+        if (span) span.textContent = `Share (${list ? list.length : 0})`;
+    }
     if (!accessListContainer) return;
     if (list.length === 0) {
         accessListContainer.innerHTML = '<p class="text-xs text-slate-400 py-2">No emails granted access yet.</p>';
         return;
     }
-    accessListContainer.innerHTML = list.map(item => `
-        <div class="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 border border-slate-100">
-            <div class="flex items-center space-x-3 min-w-0">
-                <div class="w-8 h-8 rounded-full bg-brand-50 text-brand-700 font-bold text-xs flex items-center justify-center uppercase shrink-0">
-                    ${escapeHtml(item.email.substring(0, 2))}
+    accessListContainer.innerHTML = list.map(item => {
+        const isGrantedByAdmin = item.granted_by_admin_id !== null && item.granted_by_admin_id !== undefined && item.granted_by_admin_id !== '';
+        const adminName = item.granted_by_name || 'Admin';
+        const dateStr = item.granted_at ? ' &bull; ' + item.granted_at.substring(0, 10) : '';
+        const accessText = isGrantedByAdmin
+            ? `Shared by <strong class="text-slate-700 font-semibold">${escapeHtml(adminName)}</strong>`
+            : `<span class="inline-flex items-center text-amber-700 font-medium">OTP Verification</span>`;
+
+        return `
+            <div class="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 border border-slate-100">
+                <div class="flex items-center space-x-3 min-w-0">
+                    <div class="w-8 h-8 rounded-full bg-brand-50 text-brand-700 font-bold text-xs flex items-center justify-center uppercase shrink-0">
+                        ${escapeHtml(item.email.substring(0, 2))}
+                    </div>
+                    <div class="min-w-0">
+                        <p class="text-xs font-semibold text-slate-800 truncate">${escapeHtml(item.email)}</p>
+                        <p class="text-[10px] text-slate-500">
+                            ${accessText}${dateStr}
+                        </p>
+                    </div>
                 </div>
-                <div class="min-w-0">
-                    <p class="text-xs font-semibold text-slate-800 truncate">${escapeHtml(item.email)}</p>
-                    <p class="text-[10px] text-slate-500">
-                        Shared by <strong class="text-slate-700 font-semibold">${escapeHtml(item.granted_by_name || 'Admin')}</strong>
-                    </p>
-                </div>
+                <button onclick="removeAccess('${escapeHtml(item.email)}')" class="text-slate-400 hover:text-rose-600 p-1 text-xs font-medium shrink-0 ml-2">
+                    Remove
+                </button>
             </div>
-            <button onclick="removeAccess('${escapeHtml(item.email)}')" class="text-slate-400 hover:text-rose-600 p-1 text-xs font-medium shrink-0 ml-2">
-                Remove
-            </button>
-        </div>
-    `).join('');
+        `;
+    }).join('');
 }
 
 <?php if ($isAdmin): ?>

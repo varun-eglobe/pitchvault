@@ -46,8 +46,8 @@ pitching-videos/
 │   ├── login.php                # Admin login screen (admin@example.com / admin123)
 │   ├── index.php                # Admin Dashboard (Project tree, stats cards, recent sessions)
 │   ├── projects.php             # Project CRUD manager
-│   ├── video-upload.php         # Add & edit video assets with MP4/thumbnail uploaders
-│   ├── video-details.php        # Video details, copy private URL, & access permissions
+│   ├── video-upload.php         # Single unified video page (Upload, edit metadata, copy share URL, manage email access, stats & delete)
+│   ├── video-details.php        # Legacy route (Auto-redirects to video-upload.php)
 │   ├── analytics.php            # Analytics breakdown, viewer metrics & session event timelines
 │   └── logout.php               # Admin logout handler
 ├── ajax/

@@ -88,7 +88,7 @@ if (isSalesAdmin()) {
 
 $stmt = $db->prepare("
     SELECT pa.email, pa.granted_at, pa.granted_by_admin_id, 
-           COALESCE(a.name, 'Admin') as granted_by_name, 
+           a.name as granted_by_name, 
            a.email as granted_by_email
     FROM project_access pa 
     LEFT JOIN admins a ON pa.granted_by_admin_id = a.id 
