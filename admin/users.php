@@ -256,18 +256,25 @@ include __DIR__ . '/../includes/header.php';
                             </td>
                             <td class="px-6 py-4">
                                 <?php if ($admin['id'] == $_SESSION['admin_id']): ?>
-                                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-2xs">
-                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5"></span> Active
-                                    </span>
+                                    <div class="inline-flex items-center space-x-2 opacity-80" title="You cannot deactivate your logged-in account">
+                                        <span class="relative inline-flex h-6 w-11 shrink-0 cursor-not-allowed rounded-full border-2 border-transparent bg-emerald-500 transition-colors">
+                                            <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 translate-x-5"></span>
+                                        </span>
+                                        <span class="text-xs font-semibold text-emerald-700">Active</span>
+                                    </div>
                                 <?php else: ?>
                                     <form method="POST" action="<?= getBaseUrl() ?>/admin/users" class="inline">
                                         <input type="hidden" name="action" value="toggle_status">
                                         <input type="hidden" name="id" value="<?= $admin['id'] ?>">
                                         <button type="submit" 
-                                                class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold transition cursor-pointer <?= $isActive ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/80 hover:bg-emerald-100 shadow-2xs' : 'bg-rose-50 text-rose-700 border border-rose-200/80 hover:bg-rose-100 shadow-2xs' ?>"
+                                                class="inline-flex items-center space-x-2 group focus:outline-none cursor-pointer"
                                                 title="Click to <?= $isActive ? 'deactivate' : 'activate' ?> user">
-                                            <span class="w-2 h-2 rounded-full <?= $isActive ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500' ?> mr-1.5"></span>
-                                            <span><?= $isActive ? 'Active' : 'Inactive' ?></span>
+                                            <span class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out <?= $isActive ? 'bg-emerald-500 group-hover:bg-emerald-600' : 'bg-slate-300 group-hover:bg-slate-400' ?>">
+                                                <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out <?= $isActive ? 'translate-x-5' : 'translate-x-0' ?>"></span>
+                                            </span>
+                                            <span class="text-xs font-semibold transition-colors <?= $isActive ? 'text-emerald-700 font-bold' : 'text-slate-500' ?>">
+                                                <?= $isActive ? 'Active' : 'Inactive' ?>
+                                            </span>
                                         </button>
                                     </form>
                                 <?php endif; ?>
