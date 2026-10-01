@@ -92,5 +92,29 @@ try {
     echo "Error creating access_requests: " . $e->getMessage() . "\n";
 }
 
+try {
+    $db->exec("ALTER TABLE `videos` ADD COLUMN `total_views` INT DEFAULT 0 AFTER `duration`");
+    echo "Added total_views column to videos.\n";
+} catch (Exception $e) {
+    echo "videos total_views: " . $e->getMessage() . "\n";
+}
+
+// Backfill total_views from existing sessions
+try {
+    $db->exec("UPDATE videos v SET total_views = (SELECT COUNT(*) FROM video_sessions WHERE video_id = v.id)");
+    echo "Backfilled total_views from existing sessions.\n";
+} catch (Exception $e) {
+    echo "Error backfilling total_views: " . $e->getMessage() . "\n";
+}
+
+try {
+    $db->exec("ALTER TABLE `admins` ADD COLUMN `is_active` TINYINT(1) DEFAULT 1 AFTER `role`");
+    echo "Added is_active column to admins.\n";
+} catch (Exception $e) {
+    echo "admins is_active: " . $e->getMessage() . "\n";
+}
+
+
+
 
 

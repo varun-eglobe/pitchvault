@@ -5,8 +5,8 @@ require_once __DIR__ . '/../includes/auth.php';
 requireAdminLogin();
 
 $db = getDBConnection();
-$message = '';
-$error = '';
+$message = sanitize($_GET['msg'] ?? '');
+$error = sanitize($_GET['error'] ?? '');
 
 // Handle CRUD operations
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -26,7 +26,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $accessKey = 'p_' . bin2hex(random_bytes(8));
             $stmt = $db->prepare("INSERT INTO projects (title, description, access_key, access_type, created_at) VALUES (:title, :desc, :key, 'invited', NOW())");
             $stmt->execute(['title' => $title, 'desc' => $description, 'key' => $accessKey]);
-            $message = 'Project created successfully!';
+            header("Location: projects?msg=" . urlencode('Project created successfully!'));
+            exit;
         }
     } elseif ($action === 'update') {
         if (!canAdminManageProject($projectId)) {
@@ -34,7 +35,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif ($projectId > 0 && !empty($title)) {
             $stmt = $db->prepare("UPDATE projects SET title = :title, description = :desc, access_type = 'invited' WHERE id = :id");
             $stmt->execute(['title' => $title, 'desc' => $description, 'id' => $projectId]);
-            $message = 'Project updated successfully!';
+            header("Location: projects?msg=" . urlencode('Project updated successfully!'));
+            exit;
         }
     } elseif ($action === 'delete') {
         if (!canAdminManageProject($projectId)) {
@@ -53,8 +55,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $stmt = $db->prepare("DELETE FROM projects WHERE id = :id");
             $stmt->execute(['id' => $projectId]);
-            $message = 'Project and all associated videos deleted.';
+            header("Location: projects?msg=" . urlencode('Project and all associated videos deleted.'));
+            exit;
         }
+    }
+
+    if ($error) {
+        header("Location: projects?error=" . urlencode($error));
+        exit;
     }
 }
 

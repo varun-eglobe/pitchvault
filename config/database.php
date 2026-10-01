@@ -1,11 +1,16 @@
 <?php
 // config/database.php - PDO Database Connection Configuration
 
-define('DB_HOST', '127.0.0.1');
-define('DB_PORT', '3306');
-define('DB_NAME', 'pitching_videos_db');
-define('DB_USER', 'root');
-define('DB_PASS', '');
+// Load local/production credentials if present (ignored by Git)
+if (file_exists(__DIR__ . '/database.local.php')) {
+    require_once __DIR__ . '/database.local.php';
+}
+
+defined('DB_HOST') || define('DB_HOST', '127.0.0.1');
+defined('DB_PORT') || define('DB_PORT', '3306');
+defined('DB_NAME') || define('DB_NAME', 'pitching_videos_db');
+defined('DB_USER') || define('DB_USER', 'root');
+defined('DB_PASS') || define('DB_PASS', '');
 
 date_default_timezone_set('Asia/Kolkata');
 

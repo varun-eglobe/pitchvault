@@ -55,16 +55,16 @@ function refreshAdminSession() {
     if (empty($_SESSION['admin_id'])) return;
     try {
         $db = getDBConnection();
-        $stmt = $db->prepare("SELECT id, name, email, role FROM admins WHERE id = :id LIMIT 1");
+        $stmt = $db->prepare("SELECT id, name, email, role, is_active FROM admins WHERE id = :id LIMIT 1");
         $stmt->execute(['id' => (int)$_SESSION['admin_id']]);
         $currentAdmin = $stmt->fetch();
-        if ($currentAdmin) {
+        if ($currentAdmin && (int)($currentAdmin['is_active'] ?? 1) === 1) {
             $_SESSION['admin_name'] = $currentAdmin['name'];
             $_SESSION['admin_email'] = $currentAdmin['email'];
             $_SESSION['admin_role'] = $currentAdmin['role'] ?? 'editor';
         } else {
             unset($_SESSION['admin_id'], $_SESSION['admin_name'], $_SESSION['admin_email'], $_SESSION['admin_role']);
-            header("Location: " . getBaseUrl() . "/admin/login.php");
+            header("Location: " . getBaseUrl() . "/admin/login.php?error=" . urlencode("Your account has been deactivated. Please contact an administrator."));
             exit;
         }
     } catch (Exception $e) {

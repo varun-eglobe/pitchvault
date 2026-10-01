@@ -10,13 +10,13 @@ $db = getDBConnection();
 
 // Fetch Video and associated Project
 if (!empty($accessKey)) {
-    $stmt = $db->prepare("SELECT v.*, p.title as project_title, p.access_key as project_access_key, p.access_type as project_access_type 
+    $stmt = $db->prepare("SELECT v.*, (SELECT COUNT(*) FROM video_sessions WHERE video_id = v.id) as session_count, p.title as project_title, p.access_key as project_access_key, p.access_type as project_access_type 
                           FROM videos v 
                           JOIN projects p ON v.project_id = p.id 
                           WHERE v.access_key = :key LIMIT 1");
     $stmt->execute(['key' => $accessKey]);
 } else {
-    $stmt = $db->prepare("SELECT v.*, p.title as project_title, p.access_key as project_access_key, p.access_type as project_access_type 
+    $stmt = $db->prepare("SELECT v.*, (SELECT COUNT(*) FROM video_sessions WHERE video_id = v.id) as session_count, p.title as project_title, p.access_key as project_access_key, p.access_type as project_access_type 
                           FROM videos v 
                           JOIN projects p ON v.project_id = p.id 
                           WHERE v.id = :id LIMIT 1");
@@ -382,6 +382,11 @@ include __DIR__ . '/includes/header.php';
                     <span class="inline-flex items-center px-2.5 py-1 rounded-lg font-medium bg-emerald-50 text-emerald-700 border border-emerald-200/80 shadow-2xs">
                         <span class="w-2 h-2 rounded-full bg-emerald-500 mr-1.5 animate-pulse"></span>
                         Verified Access
+                    </span>
+                    <?php $wViews = max((int)($video['total_views'] ?? 0), (int)($video['session_count'] ?? 0)); ?>
+                    <span class="inline-flex items-center px-2.5 py-1 rounded-lg font-medium bg-slate-100 text-slate-700 border border-slate-200/80 shadow-2xs">
+                        <svg class="w-3.5 h-3.5 text-slate-500 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                        <span><?= number_format($wViews) ?> View<?= $wViews === 1 ? '' : 's' ?></span>
                     </span>
                     <?php if ($isAdmin): ?>
                         <span class="text-slate-400 text-xs hidden sm:inline">&bull;</span>

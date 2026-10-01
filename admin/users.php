@@ -6,8 +6,8 @@ requireAdminLogin();
 requireMasterAdmin(); // Only Master Admins can manage users
 
 $db = getDBConnection();
-$message = '';
-$error = '';
+$message = sanitize($_GET['msg'] ?? '');
+$error = sanitize($_GET['error'] ?? '');
 
 // Handle CRUD operations
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -47,7 +47,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $stmtProj->execute(['aid' => $newAdminId, 'pid' => (int)$pid]);
                     }
                 }
-                $message = 'User created successfully with role ' . getAdminRoleLabel($dbRole) . '!';
+                header("Location: users?msg=" . urlencode('User created successfully with role ' . getAdminRoleLabel($dbRole) . '!'));
+                exit;
             }
         }
     } elseif ($action === 'update') {
@@ -82,17 +83,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $_SESSION['admin_role'] = $dbRole;
                 }
                 
-                $message = 'User updated successfully!';
+                header("Location: users?msg=" . urlencode('User updated successfully!'));
+                exit;
             }
         }
     } elseif ($action === 'delete') {
         if ($adminId > 0 && $adminId != $_SESSION['admin_id']) {
             $db->prepare("DELETE FROM admin_projects WHERE admin_id = :id")->execute(['id' => $adminId]);
             $db->prepare("DELETE FROM admins WHERE id = :id")->execute(['id' => $adminId]);
-            $message = 'User account deleted.';
+            header("Location: users?msg=" . urlencode('User account deleted.'));
+            exit;
         } else {
             $error = 'Cannot delete your own logged-in account.';
         }
+    } elseif ($action === 'toggle_status') {
+        if ($adminId > 0) {
+            if ($adminId === (int)$_SESSION['admin_id']) {
+                $error = 'You cannot deactivate your own logged-in account.';
+            } else {
+                $stmt = $db->prepare("UPDATE admins SET is_active = IF(is_active = 1, 0, 1) WHERE id = :id");
+                $stmt->execute(['id' => $adminId]);
+                
+                $checkStmt = $db->prepare("SELECT is_active FROM admins WHERE id = :id");
+                $checkStmt->execute(['id' => $adminId]);
+                $st = $checkStmt->fetchColumn();
+                $statusLabel = ((int)$st === 1) ? 'activated' : 'deactivated';
+                
+                header("Location: users?msg=" . urlencode("User account has been $statusLabel successfully."));
+                exit;
+            }
+        }
+    }
+
+    if ($error) {
+        header("Location: users?error=" . urlencode($error));
+        exit;
     }
 }
 
@@ -185,6 +210,7 @@ include __DIR__ . '/../includes/header.php';
                         <th class="px-6 py-4">User Name</th>
                         <th class="px-6 py-4">Email Address</th>
                         <th class="px-6 py-4">Assigned Role</th>
+                        <th class="px-6 py-4">Status</th>
                         <th class="px-6 py-4">Assigned Projects</th>
                         <th class="px-6 py-4">Created Date</th>
                         <th class="px-6 py-4 text-right">Actions</th>
@@ -193,15 +219,16 @@ include __DIR__ . '/../includes/header.php';
                 <tbody class="divide-y divide-slate-100 text-sm">
                     <?php foreach ($admins as $admin): 
                         $r = strtolower($admin['role']);
+                        $isActive = (int)($admin['is_active'] ?? 1) === 1;
                     ?>
-                        <tr class="hover:bg-slate-50/70 transition">
+                        <tr class="hover:bg-slate-50/70 transition <?= !$isActive ? 'bg-slate-50/60' : '' ?>">
                             <td class="px-6 py-4 font-semibold text-slate-900">
                                 <div class="flex items-center space-x-2.5">
                                     <div class="w-8 h-8 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center text-xs font-bold shrink-0">
                                         <?= strtoupper(substr($admin['name'], 0, 1)) ?>
                                     </div>
                                     <div>
-                                        <span class="block"><?= htmlspecialchars($admin['name']) ?></span>
+                                        <span class="block <?= !$isActive ? 'text-slate-400 line-through' : '' ?>"><?= htmlspecialchars($admin['name']) ?></span>
                                         <?php if ($admin['id'] == $_SESSION['admin_id']): ?>
                                             <span class="text-[10px] font-bold text-brand-600 bg-brand-50 px-1.5 py-0.5 rounded border border-brand-200">You</span>
                                         <?php endif; ?>
@@ -225,6 +252,24 @@ include __DIR__ . '/../includes/header.php';
                                         <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path></svg>
                                         Sales (Share Only)
                                     </span>
+                                <?php endif; ?>
+                            </td>
+                            <td class="px-6 py-4">
+                                <?php if ($admin['id'] == $_SESSION['admin_id']): ?>
+                                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-2xs">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5"></span> Active
+                                    </span>
+                                <?php else: ?>
+                                    <form method="POST" action="<?= getBaseUrl() ?>/admin/users" class="inline">
+                                        <input type="hidden" name="action" value="toggle_status">
+                                        <input type="hidden" name="id" value="<?= $admin['id'] ?>">
+                                        <button type="submit" 
+                                                class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold transition cursor-pointer <?= $isActive ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/80 hover:bg-emerald-100 shadow-2xs' : 'bg-rose-50 text-rose-700 border border-rose-200/80 hover:bg-rose-100 shadow-2xs' ?>"
+                                                title="Click to <?= $isActive ? 'deactivate' : 'activate' ?> user">
+                                            <span class="w-2 h-2 rounded-full <?= $isActive ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500' ?> mr-1.5"></span>
+                                            <span><?= $isActive ? 'Active' : 'Inactive' ?></span>
+                                        </button>
+                                    </form>
                                 <?php endif; ?>
                             </td>
                             <td class="px-6 py-4 text-slate-500 text-xs">

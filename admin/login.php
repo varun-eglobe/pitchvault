@@ -23,12 +23,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Default admin fallback if password not set or database initial hash matches
         if ($admin && password_verify($password, $admin['password_hash'])) {
-            $_SESSION['admin_id'] = $admin['id'];
-            $_SESSION['admin_name'] = $admin['name'];
-            $_SESSION['admin_email'] = $admin['email'];
-            $_SESSION['admin_role'] = $admin['role'] ?? 'editor';
-            header("Location: index");
-            exit;
+            if ((int)($admin['is_active'] ?? 1) === 0) {
+                $error = 'Your account has been deactivated. Please contact an administrator.';
+            } else {
+                $_SESSION['admin_id'] = $admin['id'];
+                $_SESSION['admin_name'] = $admin['name'];
+                $_SESSION['admin_email'] = $admin['email'];
+                $_SESSION['admin_role'] = $admin['role'] ?? 'editor';
+                header("Location: index");
+                exit;
+            }
         } elseif ($email === 'admin@example.com' && $password === 'admin123') {
             // Self-repair hash if default seeded password used
             $hash = password_hash('admin123', PASSWORD_BCRYPT);

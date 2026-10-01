@@ -4,6 +4,9 @@ uploads/videos/*
 uploads/thumbnails/*
 !uploads/thumbnails/.gitkeep
 
+# Environment specific credentials
+config/database.local.php
+
 # OS generated files
 .DS_Store
 Thumbs.db

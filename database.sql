@@ -1,8 +1,5 @@
 -- Private Video-Sharing Web Application Database Schema
--- Database: pitching_videos_db
-
-CREATE DATABASE IF NOT EXISTS `pitching_videos_db` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE `pitching_videos_db`;
+-- Note: Select your target database before importing this file if using phpMyAdmin or CLI.
 
 -- --------------------------------------------------------
 -- Table structure for `admins`
@@ -21,6 +18,7 @@ CREATE TABLE `admins` (
   `email` VARCHAR(191) NOT NULL UNIQUE,
   `password_hash` VARCHAR(255) NOT NULL,
   `role` ENUM('master', 'editor') DEFAULT 'editor',
+  `is_active` TINYINT(1) DEFAULT 1,
   `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -67,6 +65,7 @@ CREATE TABLE `videos` (
   `video_filename` VARCHAR(255) NOT NULL,
   `thumbnail_filename` VARCHAR(255) NULL,
   `duration` INT DEFAULT 0 COMMENT 'Duration in seconds',
+  `total_views` INT DEFAULT 0,
   `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (`project_id`) REFERENCES `projects`(`id`) ON DELETE CASCADE

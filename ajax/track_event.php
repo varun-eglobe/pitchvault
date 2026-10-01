@@ -95,6 +95,14 @@ if (!$session) {
         'completed' => $isCompleted ? 1 : 0
     ]);
     $sessionId = $db->lastInsertId();
+
+    // Increment total_views cached counter on videos table
+    try {
+        $vStmt = $db->prepare("UPDATE videos SET total_views = total_views + 1 WHERE id = :vid");
+        $vStmt->execute(['vid' => $vId]);
+    } catch (Exception $e) {
+        // Ignore if column not added yet
+    }
 } else {
     $sessionId = (int)$session['id'];
     $accumulatedWatchTime = (float)$session['total_watch_time'] + $watchTimeDelta;
