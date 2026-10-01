@@ -228,7 +228,7 @@ include __DIR__ . '/../includes/header.php';
                                         <?= strtoupper(substr($admin['name'], 0, 1)) ?>
                                     </div>
                                     <div>
-                                        <span class="block <?= !$isActive ? 'text-slate-400 line-through' : '' ?>"><?= htmlspecialchars($admin['name']) ?></span>
+                                        <span id="userName_<?= $admin['id'] ?>" class="block <?= !$isActive ? 'text-slate-400 line-through' : '' ?>"><?= htmlspecialchars($admin['name']) ?></span>
                                         <?php if ($admin['id'] == $_SESSION['admin_id']): ?>
                                             <span class="text-[10px] font-bold text-brand-600 bg-brand-50 px-1.5 py-0.5 rounded border border-brand-200">You</span>
                                         <?php endif; ?>
@@ -263,20 +263,18 @@ include __DIR__ . '/../includes/header.php';
                                         <span class="text-xs font-semibold text-emerald-700">Active</span>
                                     </div>
                                 <?php else: ?>
-                                    <form method="POST" action="<?= getBaseUrl() ?>/admin/users" class="inline">
-                                        <input type="hidden" name="action" value="toggle_status">
-                                        <input type="hidden" name="id" value="<?= $admin['id'] ?>">
-                                        <button type="submit" 
-                                                class="inline-flex items-center space-x-2 group focus:outline-none cursor-pointer"
-                                                title="Click to <?= $isActive ? 'deactivate' : 'activate' ?> user">
-                                            <span class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out <?= $isActive ? 'bg-emerald-500 group-hover:bg-emerald-600' : 'bg-slate-300 group-hover:bg-slate-400' ?>">
-                                                <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out <?= $isActive ? 'translate-x-5' : 'translate-x-0' ?>"></span>
-                                            </span>
-                                            <span class="text-xs font-semibold transition-colors <?= $isActive ? 'text-emerald-700 font-bold' : 'text-slate-500' ?>">
-                                                <?= $isActive ? 'Active' : 'Inactive' ?>
-                                            </span>
-                                        </button>
-                                    </form>
+                                    <button type="button" 
+                                            onclick="toggleUserStatus(<?= $admin['id'] ?>, this)"
+                                            id="statusBtn_<?= $admin['id'] ?>"
+                                            class="inline-flex items-center space-x-2 group focus:outline-none cursor-pointer"
+                                            title="Click to toggle active status">
+                                        <span id="statusTrack_<?= $admin['id'] ?>" class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out <?= $isActive ? 'bg-emerald-500 group-hover:bg-emerald-600' : 'bg-slate-300 group-hover:bg-slate-400' ?>">
+                                            <span id="statusKnob_<?= $admin['id'] ?>" class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out <?= $isActive ? 'translate-x-5' : 'translate-x-0' ?>"></span>
+                                        </span>
+                                        <span id="statusText_<?= $admin['id'] ?>" class="text-xs font-semibold transition-colors <?= $isActive ? 'text-emerald-700 font-bold' : 'text-slate-500' ?>">
+                                            <?= $isActive ? 'Active' : 'Inactive' ?>
+                                        </span>
+                                    </button>
                                 <?php endif; ?>
                             </td>
                             <td class="px-6 py-4 text-slate-500 text-xs">
@@ -390,6 +388,14 @@ include __DIR__ . '/../includes/header.php';
     </div>
 </div>
 
+<!-- Toast Notification Container -->
+<div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
+    <div class="bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-2xl border border-slate-800 text-xs font-semibold flex items-center space-x-2">
+        <svg class="w-4 h-4 text-emerald-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+        <span id="toastMessage">Action completed</span>
+    </div>
+</div>
+
 <script>
 const userModal = document.getElementById('userModal');
 const modalTitle = document.getElementById('modalTitle');
@@ -401,6 +407,63 @@ const adminRoleSelect = document.getElementById('adminRoleSelect');
 const adminPassword = document.getElementById('adminPassword');
 const passwordHint = document.getElementById('passwordHint');
 const projectCheckboxes = document.querySelectorAll('.project-checkbox');
+
+function showToast(msg) {
+    var toast = document.getElementById('toast');
+    var toastMsg = document.getElementById('toastMessage');
+    if (!toast || !toastMsg) return;
+    toastMsg.textContent = msg;
+    toast.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
+    setTimeout(function() {
+        toast.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
+    }, 3000);
+}
+
+async function toggleUserStatus(userId, btnElement) {
+    if (!userId) return;
+
+    var track = document.getElementById('statusTrack_' + userId);
+    var knob = document.getElementById('statusKnob_' + userId);
+    var text = document.getElementById('statusText_' + userId);
+    var userNameSpan = document.getElementById('userName_' + userId);
+
+    if (btnElement) btnElement.disabled = true;
+
+    try {
+        var response = await fetch('<?= getBaseUrl() ?>/ajax/toggle_user_status.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: userId })
+        });
+
+        var data = await response.json();
+
+        if (data.success) {
+            var isActive = data.is_active;
+            if (isActive) {
+                track.className = 'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out bg-emerald-500 group-hover:bg-emerald-600';
+                knob.className = 'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out translate-x-5';
+                text.className = 'text-xs font-semibold transition-colors text-emerald-700 font-bold';
+                text.textContent = 'Active';
+                if (userNameSpan) userNameSpan.classList.remove('text-slate-400', 'line-through');
+            } else {
+                track.className = 'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out bg-slate-300 group-hover:bg-slate-400';
+                knob.className = 'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out translate-x-0';
+                text.className = 'text-xs font-semibold transition-colors text-slate-500';
+                text.textContent = 'Inactive';
+                if (userNameSpan) userNameSpan.classList.add('text-slate-400', 'line-through');
+            }
+            showToast(data.message);
+        } else {
+            alert(data.error || 'Failed to toggle user status.');
+        }
+    } catch (err) {
+        console.error('AJAX error:', err);
+        alert('An error occurred while updating user status.');
+    } finally {
+        if (btnElement) btnElement.disabled = false;
+    }
+}
 
 function openUserModal() {
     modalTitle.textContent = 'Add New User';
