@@ -9,6 +9,11 @@ $pageTitle = $pageTitle ?? 'Private Pitching Video Platform';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Anti-SEO Search Engine Privacy & Disallow Meta Tags -->
+    <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
+    <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
+    <meta name="bingbot" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
+    <meta name="slurp" content="noindex, nofollow">
     <title><?= htmlspecialchars($pageTitle) ?></title>
     <!-- High-Resolution Favicons & PWA Add to Homescreen Meta Icons -->
     <link rel="icon" type="image/svg+xml" href="<?= $baseUrl ?>/favicon.svg">

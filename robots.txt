@@ -1,0 +1,5 @@
+# PitchVault - Private Video Platform
+# Disallow all search engines and web crawlers from indexing any routes or files
+
+User-agent: *
+Disallow: /

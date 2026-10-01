@@ -368,81 +368,88 @@ include __DIR__ . '/includes/header.php';
         </div>
 
         <!-- Video Details Header Bar -->
-        <div class="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-6 shadow-xs mb-6">
+        <div class="bg-white rounded-2xl border border-slate-200/90 p-5 sm:p-7 shadow-xs mb-6 transition-all">
             
-            <!-- Top Row: Project Badge + Date + Actions -->
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3.5 border-b border-slate-100">
+            <!-- Top Row: Project Breadcrumb + Title & Admin Actions -->
+            <div class="flex flex-col md:flex-row md:items-start justify-between gap-4">
                 
-                <!-- Project Breadcrumb & Status -->
-                <div class="flex items-center flex-wrap gap-2 text-xs">
-                    <a href="<?= getProjectUrl(['id' => $video['project_id'], 'access_key' => $video['project_access_key'] ?? '']) ?>" class="inline-flex items-center px-2.5 py-1 rounded-lg font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200/80 hover:bg-indigo-100 transition space-x-1.5 shadow-2xs">
-                        <svg class="w-3.5 h-3.5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg>
-                        <span><?= htmlspecialchars($video['project_title']) ?></span>
-                    </a>
-                    <span class="inline-flex items-center px-2.5 py-1 rounded-lg font-medium bg-emerald-50 text-emerald-700 border border-emerald-200/80 shadow-2xs">
-                        <span class="w-2 h-2 rounded-full bg-emerald-500 mr-1.5 animate-pulse"></span>
-                        Verified Access
-                    </span>
-                    <?php $wViews = max((int)($video['total_views'] ?? 0), (int)($video['session_count'] ?? 0)); ?>
-                    <span class="inline-flex items-center px-2.5 py-1 rounded-lg font-medium bg-slate-100 text-slate-700 border border-slate-200/80 shadow-2xs">
-                        <svg class="w-3.5 h-3.5 text-slate-500 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
-                        <span><?= number_format($wViews) ?> View<?= $wViews === 1 ? '' : 's' ?></span>
-                    </span>
-                    <?php if ($isAdmin): ?>
-                        <span class="text-slate-400 text-xs hidden sm:inline">&bull;</span>
-                        <span class="text-slate-500 text-xs font-medium">Uploaded: <?= date('M d, Y', strtotime($video['created_at'])) ?></span>
-                        <?php if (!empty($video['updated_at']) && strtotime($video['updated_at']) > (strtotime($video['created_at']) + 60)): ?>
-                            <span class="text-slate-400 text-xs hidden sm:inline">&bull;</span>
-                            <span class="text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/80 text-xs font-semibold inline-flex items-center" title="Reuploaded / Last Updated on <?= date('M d, Y h:i A', strtotime($video['updated_at'])) ?>">
-                                Updated: <?= date('M d, Y, g:i A', strtotime($video['updated_at'])) ?>
-                            </span>
-                        <?php endif; ?>
-                    <?php endif; ?>
+                <!-- Left: Project Breadcrumb & Title -->
+                <div class="space-y-2 max-w-3xl flex-1">
+                    <div class="flex items-center flex-wrap gap-2 text-xs">
+                        <a href="<?= getProjectUrl(['id' => $video['project_id'], 'access_key' => $video['project_access_key'] ?? '']) ?>" 
+                           class="inline-flex items-center px-2.5 py-1 rounded-lg font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200/80 hover:bg-indigo-100 transition space-x-1.5 shadow-2xs whitespace-nowrap">
+                            <svg class="w-3.5 h-3.5 text-indigo-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg>
+                            <span><?= htmlspecialchars($video['project_title']) ?></span>
+                        </a>
+                        <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200/80 shadow-2xs whitespace-nowrap">
+                            <span class="w-2 h-2 rounded-full bg-emerald-500 mr-1.5 animate-pulse shrink-0"></span>
+                            Verified Access
+                        </span>
+                    </div>
 
+                    <h1 class="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight leading-snug break-words pt-1">
+                        <?= htmlspecialchars($video['title']) ?>
+                    </h1>
                 </div>
 
-                <!-- Action Toolbar (Responsive Flex Row) -->
+                <!-- Right: Action Toolbar -->
                 <?php if ($isAdmin): ?>
-                    <div class="flex items-center gap-1.5 flex-wrap w-full sm:w-auto justify-between sm:justify-end">
-                        <button id="copyLinkBtn" class="flex-1 sm:flex-initial inline-flex items-center justify-center space-x-1.5 px-3 py-2 bg-slate-50 border border-slate-200/80 hover:bg-slate-100 text-slate-700 font-semibold rounded-xl text-xs transition shadow-2xs">
+                    <div class="flex items-center gap-1.5 flex-wrap shrink-0">
+                        <button id="copyLinkBtn" class="inline-flex items-center justify-center space-x-1.5 px-3 py-2 bg-slate-50 border border-slate-200/80 hover:bg-slate-100 text-slate-700 font-semibold rounded-xl text-xs transition shadow-2xs whitespace-nowrap">
                             <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
                             <span>Copy Link</span>
                         </button>
-                        <button id="openShareModalBtn" class="flex-1 sm:flex-initial inline-flex items-center justify-center space-x-1.5 px-3 py-2 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-xl text-xs transition shadow-xs">
+                        <button id="openShareModalBtn" class="inline-flex items-center justify-center space-x-1.5 px-3.5 py-2 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-xl text-xs transition shadow-xs whitespace-nowrap">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path></svg>
                             <span>Share (<?= count($accessList) ?>)</span>
                         </button>
-
-                        <button id="openDocsModalBtn" class="flex-1 sm:flex-initial inline-flex items-center justify-center space-x-1.5 px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/80 font-semibold rounded-xl text-xs transition shadow-2xs">
+                        <button id="openDocsModalBtn" class="inline-flex items-center justify-center space-x-1.5 px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/80 font-semibold rounded-xl text-xs transition shadow-2xs whitespace-nowrap">
                             <svg class="w-3.5 h-3.5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path></svg>
                             <span>Docs</span>
                             <span id="docsHeaderBadge" class="ml-1 px-1.5 py-0.2 bg-white border border-indigo-200 text-indigo-700 rounded-md text-[10px] font-bold leading-none"><?= count($relatedDocs) ?></span>
                         </button>
-
-                        <a href="<?= getBaseUrl() ?>/admin/video-upload?id=<?= $vId ?>" class="flex-1 sm:flex-initial inline-flex items-center justify-center space-x-1 px-3 py-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl text-xs font-semibold transition shadow-2xs">
+                        <a href="<?= getBaseUrl() ?>/admin/video-upload?id=<?= $vId ?>" class="inline-flex items-center justify-center space-x-1 px-3 py-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl text-xs font-semibold transition shadow-2xs whitespace-nowrap">
                             <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
                             <span>Edit</span>
                         </a>
-
-                        <a href="<?= getBaseUrl() ?>/admin/analytics?id=<?= $vId ?>" class="flex-1 sm:flex-initial inline-flex items-center justify-center space-x-1 px-3 py-2 bg-slate-900 text-white hover:bg-slate-800 rounded-xl text-xs font-semibold transition shadow-xs">
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                        <a href="<?= getBaseUrl() ?>/admin/analytics?id=<?= $vId ?>" class="inline-flex items-center justify-center space-x-1 px-3 py-2 bg-slate-900 text-white hover:bg-slate-800 rounded-xl text-xs font-semibold transition shadow-xs whitespace-nowrap">
+                            <svg class="w-3.5 h-3.5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
                             <span>Stats</span>
                         </a>
                     </div>
                 <?php endif; ?>
             </div>
 
-            <!-- Video Title & Description -->
-            <div class="pt-3">
-                <h1 class="text-lg sm:text-2xl font-bold text-slate-900 tracking-tight leading-snug break-words">
-                    <?= htmlspecialchars($video['title']) ?>
-                </h1>
-                <?php if (!empty($video['description'])): ?>
-                    <p class="text-xs sm:text-sm text-slate-600 mt-2 leading-relaxed whitespace-pre-line">
-                        <?= htmlspecialchars($video['description']) ?>
-                    </p>
+            <!-- Sub-row: Metadata & Stats Bar -->
+            <div class="mt-4 pt-3.5 border-t border-slate-100 flex items-center flex-wrap gap-y-2 gap-x-4 text-xs text-slate-500 font-medium">
+                <?php $wViews = max((int)($video['total_views'] ?? 0), (int)($video['session_count'] ?? 0)); ?>
+                <span class="inline-flex items-center text-slate-700 font-semibold bg-slate-100/90 px-2.5 py-1 rounded-lg border border-slate-200/70 shadow-2xs">
+                    <svg class="w-3.5 h-3.5 text-slate-500 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                    <span><?= number_format($wViews) ?> View<?= $wViews === 1 ? '' : 's' ?></span>
+                </span>
+
+                <span class="inline-flex items-center">
+                    <svg class="w-3.5 h-3.5 text-slate-400 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2h14z"></path></svg>
+                    Uploaded: <strong class="ml-1 text-slate-700 font-semibold"><?= date('M d, Y', strtotime($video['created_at'])) ?></strong>
+                </span>
+
+                <?php if ($isAdmin && !empty($video['updated_at']) && strtotime($video['updated_at']) > (strtotime($video['created_at']) + 60)): ?>
+                    <span class="text-slate-300 hidden sm:inline">&bull;</span>
+                    <span class="inline-flex items-center text-amber-800 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200/80 font-medium" title="Reuploaded / Last Updated on <?= date('M d, Y h:i A', strtotime($video['updated_at'])) ?>">
+                        <svg class="w-3.5 h-3.5 text-amber-600 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                        Updated: <span class="ml-1 font-semibold"><?= date('M d, Y, g:i A', strtotime($video['updated_at'])) ?></span>
+                    </span>
                 <?php endif; ?>
             </div>
+
+            <!-- Description Block -->
+            <?php if (!empty($video['description'])): ?>
+                <div class="mt-4 pt-3.5 border-t border-slate-100/80">
+                    <p class="text-xs sm:text-sm text-slate-600 leading-relaxed whitespace-pre-line">
+                        <?= htmlspecialchars($video['description']) ?>
+                    </p>
+                </div>
+            <?php endif; ?>
         </div>
 
         <?php if ($isAdmin): ?>

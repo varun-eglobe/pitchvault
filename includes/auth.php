@@ -1,6 +1,10 @@
 <?php
 // includes/auth.php - Session management, authentication, CSRF, and helper utilities
 
+if (!headers_sent()) {
+    header('X-Robots-Tag: noindex, nofollow, noarchive, nosnippet');
+}
+
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -680,5 +684,58 @@ function verifyProjectOTP($projectId, $email, $inputOtp) {
     }
 
     return false;
+}
+
+// Welcome Email with Login Credentials & Login URL for New Admin Users
+function sendNewUserWelcomeEmail($name, $email, $rawPassword, $roleLabel = 'User') {
+    $loginUrl = getBaseUrl() . '/admin/login.php';
+    $subject = "Welcome to PitchVault - Your Account Credentials";
+
+    $htmlContent = '
+    <div style="font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Helvetica, Arial, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px;">
+        <div style="text-align: center; padding-bottom: 20px; border-bottom: 1px solid #f1f5f9;">
+            <div style="display: inline-block; width: 52px; height: 52px; background: linear-gradient(135deg, #4f46e5, #6366f1); border-radius: 14px; line-height: 52px; color: #ffffff; font-weight: bold; font-size: 22px; margin-bottom: 12px; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);">PV</div>
+            <h2 style="margin: 0; color: #0f172a; font-size: 22px; font-weight: 700;">Welcome to PitchVault</h2>
+            <p style="margin: 4px 0 0; color: #64748b; font-size: 13px;">Your admin account credentials & access details</p>
+        </div>
+
+        <div style="padding: 24px 0;">
+            <p style="margin: 0 0 16px; color: #334155; font-size: 15px; line-height: 1.6;">Hello <strong>' . htmlspecialchars($name) . '</strong>,</p>
+            <p style="margin: 0 0 20px; color: #475569; font-size: 14px; line-height: 1.6;">An account has been created for you on the PitchVault platform with the role <strong>' . htmlspecialchars($roleLabel) . '</strong>. You can log in using the credentials below:</p>
+
+            <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 20px; margin-bottom: 24px;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                    <tr>
+                        <td style="padding: 6px 0; color: #64748b; font-weight: 600; width: 120px;">Login URL:</td>
+                        <td style="padding: 6px 0; color: #0f172a;"><a href="' . $loginUrl . '" style="color: #4f46e5; text-decoration: none; font-weight: 600;">' . $loginUrl . '</a></td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 6px 0; color: #64748b; font-weight: 600;">Email Address:</td>
+                        <td style="padding: 6px 0; color: #0f172a; font-family: monospace; font-size: 14px; font-weight: 600;">' . htmlspecialchars($email) . '</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 6px 0; color: #64748b; font-weight: 600;">Password:</td>
+                        <td style="padding: 6px 0; font-family: monospace; font-size: 14px; font-weight: 700; color: #4f46e5;">' . htmlspecialchars($rawPassword) . '</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 6px 0; color: #64748b; font-weight: 600;">Assigned Role:</td>
+                        <td style="padding: 6px 0; color: #0f172a; font-weight: 600;">' . htmlspecialchars($roleLabel) . '</td>
+                    </tr>
+                </table>
+            </div>
+
+            <div style="text-align: center; margin: 28px 0 16px;">
+                <a href="' . $loginUrl . '" style="display: inline-block; padding: 12px 32px; background: linear-gradient(135deg, #4f46e5, #4338ca); color: #ffffff; text-decoration: none; font-weight: 600; font-size: 14px; border-radius: 12px; box-shadow: 0 4px 14px rgba(79, 70, 229, 0.3);">Log In to Your Account &rarr;</a>
+            </div>
+
+            <p style="margin: 20px 0 0; color: #94a3b8; font-size: 12px; text-align: center;">For security, we recommend changing your password after your initial login.</p>
+        </div>
+
+        <div style="padding-top: 20px; border-top: 1px solid #f1f5f9; text-align: center; color: #94a3b8; font-size: 11px;">
+            This is an automated notification from PitchVault System Administration.
+        </div>
+    </div>';
+
+    return sendSystemEmail($email, $subject, $htmlContent);
 }
 

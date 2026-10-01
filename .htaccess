@@ -1,6 +1,11 @@
 # .htaccess - Increase PHP upload limit for WAMP Apache
 Require all granted
 
+# Anti-SEO HTTP Response Headers for search engines & web crawlers
+<IfModule mod_headers.c>
+    Header set X-Robots-Tag "noindex, nofollow, noarchive, nosnippet"
+</IfModule>
+
 <IfModule mod_php.c>
     php_value upload_max_filesize 100M
     php_value post_max_size 100M

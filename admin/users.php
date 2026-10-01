@@ -47,7 +47,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $stmtProj->execute(['aid' => $newAdminId, 'pid' => (int)$pid]);
                     }
                 }
-                header("Location: users?msg=" . urlencode('User created successfully with role ' . getAdminRoleLabel($dbRole) . '!'));
+                // Send Welcome Email with Login Credentials & Login URL
+                $emailResult = sendNewUserWelcomeEmail($name, $email, $password, getAdminRoleLabel($dbRole));
+
+                $msgText = 'User created successfully with role ' . getAdminRoleLabel($dbRole) . '!';
+                if (isset($emailResult['success']) && !$emailResult['success']) {
+                    $msgText .= ' (Note: Credentials email could not be sent: ' . $emailResult['error'] . ')';
+                } else {
+                    $msgText .= ' Welcome email sent to ' . $email . '.';
+                }
+
+                header("Location: users?msg=" . urlencode($msgText));
                 exit;
             }
         }
@@ -95,23 +105,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         } else {
             $error = 'Cannot delete your own logged-in account.';
-        }
-    } elseif ($action === 'toggle_status') {
-        if ($adminId > 0) {
-            if ($adminId === (int)$_SESSION['admin_id']) {
-                $error = 'You cannot deactivate your own logged-in account.';
-            } else {
-                $stmt = $db->prepare("UPDATE admins SET is_active = IF(is_active = 1, 0, 1) WHERE id = :id");
-                $stmt->execute(['id' => $adminId]);
-                
-                $checkStmt = $db->prepare("SELECT is_active FROM admins WHERE id = :id");
-                $checkStmt->execute(['id' => $adminId]);
-                $st = $checkStmt->fetchColumn();
-                $statusLabel = ((int)$st === 1) ? 'activated' : 'deactivated';
-                
-                header("Location: users?msg=" . urlencode("User account has been $statusLabel successfully."));
-                exit;
-            }
         }
     }
 
